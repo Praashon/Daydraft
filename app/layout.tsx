@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   description:
     "An AI-powered daily life organization app that quietly transforms messy thoughts into structured tasks, priorities, schedules, and actionable plans.",
   icons: {
-    icon: "/favicon.ico",
+    icon: "/logo.jpg",
   },
 };
 
