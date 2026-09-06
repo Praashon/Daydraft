@@ -13,7 +13,7 @@ export function formatCurrentDate(date: Date = new Date()): string {
   }).format(date);
 }
 
-export function getGreeting(name: string = "Prashon"): { greeting: string; subtext: string } {
+export function getGreeting(name: string = ""): { greeting: string; subtext: string } {
   const hour = new Date().getHours();
   let greeting = "Good afternoon";
   
@@ -25,8 +25,10 @@ export function getGreeting(name: string = "Prashon"): { greeting: string; subte
     greeting = "Good evening";
   }
 
+  const trimmed = name?.trim();
+
   return {
-    greeting: `${greeting}, ${name}`,
+    greeting: trimmed ? `${greeting}, ${trimmed}` : greeting,
     subtext: "Let's bring clarity to your day.",
   };
 }

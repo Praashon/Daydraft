@@ -3,15 +3,18 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useAppContext } from "@/components/app-provider";
 import { createClient } from "@/lib/supabase/client";
-import { Camera, User, Loader2, Save, CheckCircle } from "lucide-react";
+import { Camera, User, Loader2, Save, CheckCircle, Lock } from "lucide-react";
 import { MFASettings } from "@/components/mfa-settings";
+import { ImageCropModal } from "@/components/image-crop-modal";
 
 export default function ProfilePage() {
   const { user, setUser } = useAppContext();
   const [name, setName] = useState(user.name || "");
-  const [role, setRole] = useState(user.role || "");
+  const [username, setUsername] = useState(user.username || user.role || "");
 
   const [avatarPreview, setAvatarPreview] = useState(user.avatarUrl || "");
+  const [rawImageSrc, setRawImageSrc] = useState("");
+  const [isCropModalOpen, setIsCropModalOpen] = useState(false);
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
 
   const [newPassword, setNewPassword] = useState("");
@@ -25,7 +28,7 @@ export default function ProfilePage() {
 
   useEffect(() => {
     setName(user.name || "");
-    setRole(user.role || "");
+    setUsername(user.username || user.role || "");
     setAvatarPreview(user.avatarUrl || "");
   }, [user]);
 
@@ -43,13 +46,28 @@ export default function ProfilePage() {
       return;
     }
 
-    setAvatarFile(file);
     const reader = new FileReader();
-    reader.onload = (e) => {
-      setAvatarPreview(e.target?.result as string);
+    reader.onload = (event) => {
+      const result = String(event.target?.result);
+      setRawImageSrc(result);
+      setIsCropModalOpen(true);
     };
     reader.readAsDataURL(file);
     setError("");
+    e.target.value = "";
+  };
+
+  const handleCropApplied = (croppedDataUrl: string) => {
+    setAvatarPreview(croppedDataUrl);
+    const match = croppedDataUrl.match(
+      /^data:image\/(jpeg|png|webp);base64,(.+)$/
+    );
+    if (match) {
+      const bytes = Uint8Array.from(atob(match[2]), (c) => c.charCodeAt(0));
+      const blob = new Blob([bytes], { type: "image/jpeg" });
+      const file = new File([blob], "avatar.jpg", { type: "image/jpeg" });
+      setAvatarFile(file);
+    }
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -67,25 +85,27 @@ export default function ProfilePage() {
       let newAvatarUrl = avatarPreview;
 
       if (authUser && avatarFile) {
-        const fileExt = avatarFile.name.split(".").pop();
-        const filePath = `${authUser.id}-${Math.random()}.${fileExt}`;
+        const filePath = `${authUser.id}.jpg`;
 
         const { error: uploadError } = await supabase.storage
           .from("avatars")
-          .upload(filePath, avatarFile, { upsert: true });
+          .upload(filePath, avatarFile, { contentType: "image/jpeg", upsert: true });
 
         if (uploadError) throw uploadError;
 
         const {
           data: { publicUrl },
         } = supabase.storage.from("avatars").getPublicUrl(filePath);
-        newAvatarUrl = publicUrl;
+        newAvatarUrl = `${publicUrl}?t=${Date.now()}`;
+      } else if (!avatarPreview && authUser) {
+        newAvatarUrl = "";
       }
 
       const updatedUser = {
         ...user,
         name,
-        role,
+        username,
+        role: username || user.role,
         avatarUrl: newAvatarUrl,
       };
 
@@ -96,7 +116,6 @@ export default function ProfilePage() {
           .from("profiles")
           .update({
             name,
-            username: role,
             avatar_url: newAvatarUrl,
           })
           .eq("id", authUser.id);
@@ -161,7 +180,7 @@ export default function ProfilePage() {
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
-              className="absolute bottom-0 right-0 p-2 rounded-full bg-emerald-600 text-white shadow-sm hover:bg-emerald-700 transition-colors"
+              className="absolute bottom-0 right-0 p-2 rounded-full bg-emerald-600 text-white shadow-sm hover:bg-emerald-700 transition-colors cursor-pointer"
             >
               <Camera className="w-4 h-4" />
             </button>
@@ -180,22 +199,32 @@ export default function ProfilePage() {
             <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">
               JPG, PNG or WEBP. Max size of 5MB.
             </p>
-            <div className="mt-4 flex justify-center sm:justify-start gap-3">
+            <div className="mt-4 flex flex-wrap justify-center sm:justify-start gap-2.5">
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                className="text-sm font-medium px-4 py-2 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors"
+                className="text-sm font-medium px-4 py-2 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors cursor-pointer"
               >
                 Upload new
               </button>
+              {rawImageSrc && (
+                <button
+                  type="button"
+                  onClick={() => setIsCropModalOpen(true)}
+                  className="text-sm font-medium px-4 py-2 rounded-xl bg-emerald-600/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-600/20 transition-colors cursor-pointer"
+                >
+                  Recrop
+                </button>
+              )}
               {avatarPreview && (
                 <button
                   type="button"
                   onClick={() => {
                     setAvatarPreview("");
+                    setRawImageSrc("");
                     setAvatarFile(null);
                   }}
-                  className="text-sm font-medium px-4 py-2 rounded-xl text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+                  className="text-sm font-medium px-4 py-2 rounded-xl text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors cursor-pointer"
                 >
                   Remove
                 </button>
@@ -220,16 +249,29 @@ export default function ProfilePage() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                Username
-              </label>
-              <input
-                type="text"
-                value={role}
-                onChange={(e) => setRole(e.target.value)}
-                placeholder="Product Designer"
-                className="w-full px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 focus:outline-none focus:border-emerald-600 dark:focus:border-emerald-500 transition-colors"
-              />
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                  Username
+                </label>
+                <span className="flex items-center gap-1 text-[11px] font-medium text-zinc-400 dark:text-zinc-500">
+                  <Lock className="w-3 h-3" /> Unchangeable
+                </span>
+              </div>
+              <div className="relative">
+                <span className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-zinc-400 dark:text-zinc-500 font-medium text-sm">
+                  @
+                </span>
+                <input
+                  type="text"
+                  value={username}
+                  readOnly
+                  disabled
+                  className="w-full pl-8 pr-4 py-2.5 rounded-xl border border-zinc-200/80 dark:border-zinc-800 bg-zinc-100/70 dark:bg-zinc-900/50 text-zinc-500 dark:text-zinc-400 cursor-not-allowed select-none focus:outline-none"
+                />
+              </div>
+              <p className="text-[11px] text-zinc-400 dark:text-zinc-500">
+                Usernames are permanent and cannot be modified.
+              </p>
             </div>
           </div>
         </div>
@@ -286,7 +328,7 @@ export default function ProfilePage() {
           <button
             type="submit"
             disabled={isSaving}
-            className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-70 transition-colors w-full sm:w-auto justify-center"
+            className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-emerald-600 text-white font-medium hover:bg-emerald-700 disabled:opacity-70 transition-colors w-full sm:w-auto justify-center cursor-pointer"
           >
             {isSaving ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -299,6 +341,13 @@ export default function ProfilePage() {
       </form>
 
       <MFASettings />
+
+      <ImageCropModal
+        isOpen={isCropModalOpen}
+        imageSrc={rawImageSrc}
+        onClose={() => setIsCropModalOpen(false)}
+        onApply={handleCropApplied}
+      />
     </div>
   );
 }

@@ -5,8 +5,9 @@ import Link from "next/link";
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { ArrowLeft, Mail, CheckCircle2, RefreshCw, ArrowRight } from "lucide-react";
+import { ArrowLeft, Mail, CheckCircle2, RefreshCw, ArrowRight, Crop } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { ImageCropModal } from "@/components/image-crop-modal";
 
 const disposableDomains = new Set([
   "mailinator.com",
@@ -54,7 +55,8 @@ export function AuthShell({
   const [username, setUsername] = useState("");
   const [name, setName] = useState("");
   const [avatarPreview, setAvatarPreview] = useState("");
-  const [avatarZoom, setAvatarZoom] = useState(1);
+  const [rawAvatarSrc, setRawAvatarSrc] = useState("");
+  const [isCropModalOpen, setIsCropModalOpen] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
@@ -86,39 +88,12 @@ export function AuthShell({
       return;
     }
     const reader = new FileReader();
-    reader.onload = () => setAvatarPreview(String(reader.result));
+    reader.onload = () => {
+      const result = String(reader.result);
+      setRawAvatarSrc(result);
+      setIsCropModalOpen(true);
+    };
     reader.readAsDataURL(file);
-  };
-
-  const getCroppedAvatar = async () => {
-    if (!avatarPreview) return "";
-    const image = new window.Image();
-    image.src = avatarPreview;
-    await new Promise<void>((resolve, reject) => {
-      image.onload = () => resolve();
-      image.onerror = reject;
-    });
-    const size = Math.min(image.naturalWidth, image.naturalHeight);
-    const canvas = document.createElement("canvas");
-    canvas.width = 256;
-    canvas.height = 256;
-    const context = canvas.getContext("2d");
-    if (!context) return "";
-    const sourceSize = size / avatarZoom;
-    const sourceX = (image.naturalWidth - sourceSize) / 2;
-    const sourceY = (image.naturalHeight - sourceSize) / 2;
-    context.drawImage(
-      image,
-      sourceX,
-      sourceY,
-      sourceSize,
-      sourceSize,
-      0,
-      0,
-      256,
-      256,
-    );
-    return canvas.toDataURL("image/jpeg", 0.82);
   };
 
   const submit = async (event: React.FormEvent) => {
@@ -205,7 +180,14 @@ export function AuthShell({
           
           throw new Error(`Username already in use. Try: ${suggestions.join(", ")}`);
         }
-        const croppedAvatar = await getCroppedAvatar();
+        if (typeof window !== "undefined") {
+          localStorage.setItem("daydraft_pending_name", name.trim());
+          localStorage.setItem("daydraft_pending_username", normalizedUsername);
+          if (avatarPreview) {
+            localStorage.setItem("daydraft_pending_avatar", avatarPreview);
+          }
+        }
+
         const result = await supabase.auth.signUp({
           email: normalizedEmail,
           password,
@@ -219,11 +201,22 @@ export function AuthShell({
           },
         });
         if (result.error) throw result.error;
-        if (croppedAvatar)
-          localStorage.setItem("daydraft_pending_avatar", croppedAvatar);
 
         if (result.data?.session) {
+          try {
+            await supabase.from("profiles").upsert(
+              {
+                id: result.data.session.user.id,
+                username: normalizedUsername,
+                name: name.trim(),
+                email: normalizedEmail,
+                avatar_url: "",
+              },
+              { onConflict: "id" }
+            );
+          } catch {}
           router.push("/dashboard");
+          router.refresh();
           return;
         }
 
@@ -262,6 +255,24 @@ export function AuthShell({
       });
       if (verifyError) throw verifyError;
       if (data.session) {
+        if (typeof window !== "undefined") {
+          const pendingName = localStorage.getItem("daydraft_pending_name") || "";
+          const pendingUsername = localStorage.getItem("daydraft_pending_username") || "";
+          if (pendingUsername) {
+            try {
+              await supabase.from("profiles").upsert(
+                {
+                  id: data.session.user.id,
+                  username: pendingUsername,
+                  name: pendingName,
+                  email: pendingVerificationEmail,
+                  avatar_url: "",
+                },
+                { onConflict: "id" }
+              );
+            } catch {}
+          }
+        }
         router.push("/dashboard");
         router.refresh();
       } else {
@@ -484,48 +495,65 @@ export function AuthShell({
                     type="file"
                     accept="image/png,image/jpeg,image/webp"
                     className="sr-only"
-                    onChange={(event) =>
-                      handleAvatarFile(event.target.files?.[0])
-                    }
+                    onChange={(event) => {
+                      handleAvatarFile(event.target.files?.[0]);
+                      event.target.value = "";
+                    }}
                   />
-                  <button
-                    type="button"
-                    onClick={() => avatarInputRef.current?.click()}
-                    className="mt-2 flex w-full items-center gap-3 rounded-xl border border-dashed border-emerald-300 dark:border-emerald-800/80 bg-emerald-50/50 dark:bg-emerald-950/20 p-3 text-left text-sm font-normal text-[#66766d] dark:text-zinc-400 hover:border-emerald-600 dark:hover:border-emerald-500 cursor-pointer"
-                  >
-                    {avatarPreview ? (
-                      <img
-                        src={avatarPreview}
-                        alt="Avatar crop preview"
-                        className="h-12 w-12 rounded-full object-cover"
-                        style={{ transform: `scale(${avatarZoom})` }}
-                      />
-                    ) : (
-                      <span className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300">
+                  {avatarPreview ? (
+                    <div className="mt-2 flex items-center justify-between gap-3 rounded-xl border border-emerald-300 dark:border-emerald-800/80 bg-emerald-50/50 dark:bg-emerald-950/20 p-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-emerald-500 shadow-sm shrink-0">
+                          <img
+                            src={avatarPreview}
+                            alt="Avatar preview"
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <span className="text-xs font-medium text-emerald-800 dark:text-emerald-300 truncate">
+                          Photo cropped & ready
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {rawAvatarSrc && (
+                          <button
+                            type="button"
+                            onClick={() => setIsCropModalOpen(true)}
+                            className="px-2.5 py-1 text-xs font-medium rounded-lg bg-emerald-600/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-600/20 transition-colors cursor-pointer"
+                          >
+                            Recrop
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => avatarInputRef.current?.click()}
+                          className="px-2.5 py-1 text-xs font-medium rounded-lg bg-emerald-600/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-600/20 transition-colors cursor-pointer"
+                        >
+                          Change
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAvatarPreview("");
+                            setRawAvatarSrc("");
+                          }}
+                          className="px-2.5 py-1 text-xs font-medium rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors cursor-pointer"
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => avatarInputRef.current?.click()}
+                      className="mt-2 flex w-full items-center gap-3 rounded-xl border border-dashed border-emerald-300 dark:border-emerald-800/80 bg-emerald-50/50 dark:bg-emerald-950/20 p-3 text-left text-sm font-normal text-[#66766d] dark:text-zinc-400 hover:border-emerald-600 dark:hover:border-emerald-500 cursor-pointer"
+                    >
+                      <span className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 font-medium text-lg">
                         +
                       </span>
-                    )}
-                    <span>
-                      {avatarPreview
-                        ? "Change profile image"
-                        : "Choose a profile image"}
-                    </span>
-                  </button>
-                  {avatarPreview && (
-                    <div className="mt-2 flex items-center gap-3">
-                      <span className="text-xs text-[#89968d] dark:text-zinc-500">Crop zoom</span>
-                      <input
-                        type="range"
-                        min="1"
-                        max="2"
-                        step="0.05"
-                        value={avatarZoom}
-                        onChange={(event) =>
-                          setAvatarZoom(Number(event.target.value))
-                        }
-                        className="w-full accent-emerald-600"
-                      />
-                    </div>
+                      <span>Choose a profile image</span>
+                    </button>
                   )}
                 </label>
                 <label className="block text-sm font-semibold text-[#15211c] dark:text-zinc-200">
@@ -696,6 +724,15 @@ export function AuthShell({
           )}
         </section>
       </div>
+
+      <ImageCropModal
+        isOpen={isCropModalOpen}
+        imageSrc={rawAvatarSrc}
+        onClose={() => setIsCropModalOpen(false)}
+        onApply={(cropped) => {
+          setAvatarPreview(cropped);
+        }}
+      />
     </main>
   );
 }

@@ -11,10 +11,15 @@ alter table public.profiles enable row level security;
 
 drop policy if exists "Profiles are publicly readable for username lookup" on public.profiles;
 drop policy if exists "Users can update their own profile" on public.profiles;
+drop policy if exists "Users can insert their own profile" on public.profiles;
 
 create policy "Profiles are publicly readable for username lookup"
   on public.profiles for select
   using (true);
+
+create policy "Users can insert their own profile"
+  on public.profiles for insert
+  with check (auth.uid() = id);
 
 create policy "Users can update their own profile"
   on public.profiles for update
@@ -43,7 +48,6 @@ create or replace trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
 
--- Revoke public execution on internal trigger function
 revoke execute on function public.handle_new_user() from public;
 revoke execute on function public.handle_new_user() from anon, authenticated;
 grant execute on function public.handle_new_user() to service_role;

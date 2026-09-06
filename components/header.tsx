@@ -13,7 +13,7 @@ interface HeaderProps {
 }
 
 export function Header({
-  userName = "Prashon",
+  userName = "",
   onOpenMobileMenu,
 }: HeaderProps) {
   const { greeting, subtext } = getGreeting(userName);

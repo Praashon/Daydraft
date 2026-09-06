@@ -207,9 +207,9 @@ export function Sidebar({
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="relative w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center font-medium text-xs overflow-hidden shrink-0 group-hover:ring-2 ring-emerald-500/50 transition-all">
               {user.avatarUrl ? (
-                <img src={user.avatarUrl} alt={user.name} className="w-full h-full object-cover" />
+                <img src={user.avatarUrl} alt={user.name || "User avatar"} className="w-full h-full object-cover" />
               ) : isHydrated ? (
-                user.name?.charAt(0) || user.role?.charAt(0) || "U"
+                user.name?.charAt(0) || user.username?.charAt(0) || user.role?.charAt(0) || "U"
               ) : (
                 ""
               )}
@@ -217,10 +217,16 @@ export function Sidebar({
             {!isActuallyCollapsed && (
               <div className="min-w-0">
                 <span className="block text-[13px] font-semibold text-zinc-900 dark:text-zinc-100 truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-500 transition-colors">
-                  {user.name}
+                  {user.name || (isHydrated ? "Daydraft User" : "")}
                 </span>
                 <span className="block text-[11px] text-zinc-500 dark:text-zinc-400 truncate">
-                  {user.role || "Update profile"}
+                  {user.username
+                    ? `@${user.username}`
+                    : user.role
+                    ? `@${user.role}`
+                    : isHydrated
+                    ? "Update profile"
+                    : ""}
                 </span>
               </div>
             )}

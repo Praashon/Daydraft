@@ -284,7 +284,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         data: { user: authUser },
       } = await supabase.auth.getUser();
       if (!authUser) return;
-      const { name, role, avatarUrl, ...prefs } = newUser;
+      const { name, role, username, avatarUrl, ...prefs } = newUser;
       await supabase.from("user_preferences").upsert({
         user_id: authUser.id,
         preferences: prefs,
@@ -381,8 +381,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           return;
         }
 
+        const pendingName =
+          typeof window !== "undefined"
+            ? localStorage.getItem("daydraft_pending_name")
+            : null;
+        const pendingUsername =
+          typeof window !== "undefined"
+            ? localStorage.getItem("daydraft_pending_username")
+            : null;
+
         const [
-          { data: profile },
+          { data: rawProfile },
           { data: dbTasks },
           { data: dbPlan },
           { data: dbNotes },
@@ -407,7 +416,62 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
         if (!active) return;
 
-        let avatarUrl = profile?.avatar_url || "";
+        let profile = rawProfile;
+        const metaName =
+          (authUser.user_metadata?.name as string) || pendingName || "";
+        const metaUsername =
+          (authUser.user_metadata?.username as string) || pendingUsername || "";
+
+        if (!profile) {
+          const fallbackUsername =
+            metaUsername ||
+            (authUser.email
+              ? authUser.email
+                  .split("@")[0]
+                  .toLowerCase()
+                  .replace(/[^a-z0-9._]/g, "")
+              : "user");
+          const { data: createdProfile } = await supabase
+            .from("profiles")
+            .upsert(
+              {
+                id: authUser.id,
+                username: fallbackUsername,
+                name: metaName,
+                email: authUser.email || "",
+                avatar_url:
+                  (authUser.user_metadata?.avatar_url as string) || "",
+              },
+              { onConflict: "id" }
+            )
+            .select("name, username, avatar_url, email")
+            .maybeSingle();
+
+          if (createdProfile) profile = createdProfile;
+        } else if (
+          (!profile.name && metaName) ||
+          (!profile.username && metaUsername)
+        ) {
+          const updatePayload: Record<string, string> = {};
+          if (!profile.name && metaName) updatePayload.name = metaName;
+          if (!profile.username && metaUsername)
+            updatePayload.username = metaUsername;
+          if (Object.keys(updatePayload).length > 0) {
+            await supabase
+              .from("profiles")
+              .update(updatePayload)
+              .eq("id", authUser.id);
+            profile = { ...profile, ...updatePayload };
+          }
+        }
+
+        if (pendingName) localStorage.removeItem("daydraft_pending_name");
+        if (pendingUsername) localStorage.removeItem("daydraft_pending_username");
+
+        let avatarUrl =
+          profile?.avatar_url ||
+          (authUser.user_metadata?.avatar_url as string) ||
+          "";
         const pendingAvatar = localStorage.getItem("daydraft_pending_avatar");
         if (pendingAvatar) {
           const match = pendingAvatar.match(
@@ -483,26 +547,43 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           );
         }
 
+        const resolvedName = profile?.name || metaName || "";
+        const resolvedUsername = profile?.username || metaUsername || "";
+
         let newInsight = insightState;
         let newFocus = focusTaskState;
         if (dbPrefs) {
           if (dbPrefs.insight) newInsight = dbPrefs.insight;
           if (dbPrefs.focus_task) newFocus = dbPrefs.focus_task;
 
-          setUserState((current) => ({
-            ...current,
-            ...(dbPrefs.preferences || {}),
-            name: profile?.name || current.name,
-            role: profile?.username || current.role,
-            avatarUrl,
-          }));
+          setUserState((current) => {
+            const nextUser: UserProfile = {
+              ...current,
+              ...(dbPrefs.preferences || {}),
+              name: resolvedName || current.name,
+              username: resolvedUsername || current.username || "",
+              role: resolvedUsername || current.role || "",
+              avatarUrl: avatarUrl || current.avatarUrl,
+            };
+            try {
+              localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(nextUser));
+            } catch {}
+            return nextUser;
+          });
         } else {
-          setUserState((current) => ({
-            ...current,
-            name: profile?.name || current.name,
-            role: profile?.username || current.role,
-            avatarUrl,
-          }));
+          setUserState((current) => {
+            const nextUser: UserProfile = {
+              ...current,
+              name: resolvedName || current.name,
+              username: resolvedUsername || current.username || "",
+              role: resolvedUsername || current.role || "",
+              avatarUrl: avatarUrl || current.avatarUrl,
+            };
+            try {
+              localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(nextUser));
+            } catch {}
+            return nextUser;
+          });
         }
         setInsightState(newInsight);
         setFocusTaskState(newFocus);
@@ -513,11 +594,43 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setIsDataLoaded(true);
       }
     };
+
     loadData();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event) => {
+      if (
+        event === "SIGNED_IN" ||
+        event === "TOKEN_REFRESHED" ||
+        event === "USER_UPDATED"
+      ) {
+        loadData();
+      } else if (event === "SIGNED_OUT") {
+        setUserState(DEFAULT_USER);
+        setTasksState([]);
+        setDailyPlanState([]);
+        setNotesState([]);
+        setTrashState([]);
+        setFocusTaskState(INITIAL_FOCUS_TASK);
+        setInsightState(INITIAL_INSIGHT);
+        try {
+          localStorage.removeItem(STORAGE_KEYS.USER);
+          localStorage.removeItem(STORAGE_KEYS.TASKS);
+          localStorage.removeItem(STORAGE_KEYS.PLAN);
+          localStorage.removeItem(STORAGE_KEYS.NOTES);
+          localStorage.removeItem(STORAGE_KEYS.TRASH);
+          localStorage.removeItem(STORAGE_KEYS.FOCUS);
+          localStorage.removeItem(STORAGE_KEYS.INSIGHT);
+        } catch {}
+      }
+    });
+
     return () => {
       active = false;
+      subscription.unsubscribe();
     };
-  }, []);
+  }, [supabase]);
 
   useEffect(() => {
     if (!isHydrated) return;

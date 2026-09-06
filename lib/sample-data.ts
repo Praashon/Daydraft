@@ -3,6 +3,7 @@ import { Task, FocusTask, DailyPlanItem, UserProfile } from "@/types";
 export const DEFAULT_USER: UserProfile = {
   name: "",
   role: "",
+  username: "",
   assignmentName: "",
   assignmentRole: "",
   avatarUrl: "",

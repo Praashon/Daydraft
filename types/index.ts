@@ -86,6 +86,7 @@ export interface SavedTheme {
 export interface UserProfile {
   name: string;
   role: string;
+  username?: string;
   assignmentName?: string;
   assignmentRole?: string;
   avatarUrl?: string;
