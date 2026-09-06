@@ -188,11 +188,23 @@ export function AuthShell({
           throw new Error(
             "That password has appeared in a breach. Choose a different one.",
           );
-        const availability = await fetch(
+        const availabilityRes = await fetch(
           `/api/auth/username?username=${encodeURIComponent(normalizedUsername)}`,
         );
-        if (!availability.ok)
-          throw new Error("That username is unavailable. Try another one.");
+        if (!availabilityRes.ok)
+          throw new Error("Could not verify username availability. Please try again.");
+        
+        const availabilityData = await availabilityRes.json();
+        if (!availabilityData.available) {
+          const cleanName = name.trim().toLowerCase().replace(/[^a-z0-9_]/g, "") || "user";
+          const suggestions = [
+            `${cleanName}${Math.floor(Math.random() * 1000)}`,
+            `${cleanName}_${Math.floor(Math.random() * 100)}`,
+            `${cleanName}${new Date().getFullYear()}`,
+          ].filter(s => s.length >= 3 && s.length <= 24);
+          
+          throw new Error(`Username already in use. Try: ${suggestions.join(", ")}`);
+        }
         const croppedAvatar = await getCroppedAvatar();
         const result = await supabase.auth.signUp({
           email: normalizedEmail,
@@ -221,11 +233,15 @@ export function AuthShell({
         );
       }
     } catch (caught) {
-      setError(
-        caught instanceof Error
-          ? caught.message
-          : "Authentication failed. Please try again.",
-      );
+      let errorMessage = caught instanceof Error ? caught.message : "Authentication failed. Please try again.";
+      
+      if (errorMessage.includes("Database error saving new user")) {
+        errorMessage = "A database error occurred. This usually means the username or email is already taken.";
+      } else if (errorMessage.toLowerCase().includes("rate limit") || errorMessage.includes("Error sending confirmation mail")) {
+        errorMessage = "We couldn't send the confirmation email due to email provider limits. Please try again in a few minutes.";
+      }
+      
+      setError(errorMessage);
     } finally {
       setBusy(false);
     }
