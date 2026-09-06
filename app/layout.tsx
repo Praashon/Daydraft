@@ -62,7 +62,17 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 min-h-screen selection:bg-emerald-500/10 selection:text-emerald-500 transition-colors duration-300">
+      <body
+        suppressHydrationWarning
+        className="bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 min-h-screen selection:bg-emerald-500/10 selection:text-emerald-500 transition-colors duration-300"
+      >
+        <script
+          src="https://cdn.jsdelivr.net/gh/clashrelated/nepal-relief-banner@1.0.2/banner.min.js"
+          integrity="sha384-zsV61Tmn6kfxMnauiuGMOgbTqBC6qhHBy/x0ne2M0sSSoK3q+xTlPs3ZMC8W/SUp"
+          crossOrigin="anonymous"
+          data-theme="auto"
+          data-lang="en"
+        />
         <ThemeProvider>
           <AppProvider>{children}</AppProvider>
         </ThemeProvider>
