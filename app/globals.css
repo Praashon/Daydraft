@@ -1,0 +1,212 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .catppuccin, .onedark, .dark *, .catppuccin *, .onedark *));
+
+@theme {
+  --font-sans:
+    var(--font-poppins), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    sans-serif;
+  --font-poppins:
+    var(--font-poppins), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    sans-serif;
+
+  --color-canvas: #f7f8fa;
+  --color-primary: #171717;
+  --color-secondary: #737373;
+  --color-card: #ffffff;
+  --color-border-subtle: #eaeaea;
+  --color-accent: #059669;
+  --color-accent-ai: #10b981;
+}
+
+@layer base {
+  :root,
+  .light {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+  }
+
+  .dark {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+  }
+
+  .red {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --color-emerald-50: #fef2f2;
+    --color-emerald-100: #fee2e2;
+    --color-emerald-200: #fecaca;
+    --color-emerald-300: #fca5a5;
+    --color-emerald-400: #f87171;
+    --color-emerald-500: #ef4444;
+    --color-emerald-600: #dc2626;
+    --color-emerald-700: #b91c1c;
+    --color-emerald-800: #991b1b;
+    --color-emerald-900: #7f1d1d;
+    --color-emerald-950: #450a0a;
+  }
+
+  .catppuccin {
+    --color-zinc-950: #1e1e2e;
+    --color-zinc-900: #181825;
+    --color-zinc-800: #11111b;
+    --color-zinc-50: #313244;
+    --color-zinc-700: #313244;
+    --color-zinc-600: #45475a;
+    --color-zinc-200: #313244;
+    --color-zinc-500: #6c7086;
+    --color-zinc-400: #9399b2;
+    --color-zinc-300: #bac2de;
+    --color-zinc-100: #cdd6f4;
+    --color-white: #1e1e2e;
+    --color-emerald-50: rgba(203, 166, 247, 0.08);
+    --color-emerald-100: rgba(203, 166, 247, 0.15);
+    --color-emerald-200: rgba(203, 166, 247, 0.25);
+    --color-emerald-500: #f5c2e7;
+    --color-emerald-600: #cba6f7;
+    --color-emerald-700: #b4befe;
+    --color-emerald-800: #89b4fa;
+    --color-emerald-900: rgba(137, 180, 250, 0.15);
+    --color-emerald-950: rgba(137, 180, 250, 0.05);
+  }
+
+  .onedark {
+    --color-zinc-950: #282c34;
+    --color-zinc-900: #21252b;
+    --color-zinc-800: #21252b;
+    --color-zinc-50: #2c313c;
+    --color-zinc-700: #3b4048;
+    --color-zinc-600: #4b5263;
+    --color-zinc-200: #3b4048;
+    --color-zinc-500: #5c6370;
+    --color-zinc-400: #5c6370;
+    --color-zinc-300: #828997;
+    --color-zinc-100: #abb2bf;
+    --color-white: #282c34;
+    --color-emerald-50: rgba(97, 175, 239, 0.08);
+    --color-emerald-100: rgba(97, 175, 239, 0.15);
+    --color-emerald-200: rgba(97, 175, 239, 0.25);
+    --color-emerald-500: #56b6c2;
+    --color-emerald-600: #61afef;
+    --color-emerald-700: #c678dd;
+    --color-emerald-800: #98c379;
+    --color-emerald-900: rgba(97, 175, 239, 0.15);
+    --color-emerald-950: rgba(97, 175, 239, 0.05);
+  }
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: var(--font-poppins), sans-serif;
+  overflow-x: hidden;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-zinc-200 dark:bg-zinc-700;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-zinc-300 dark:bg-zinc-600;
+}
+
+.hero-heading {
+  font-size: 32px;
+  line-height: 1.25;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+}
+
+.page-heading {
+  font-size: 24px;
+  line-height: 1.3;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.card-heading {
+  font-size: 16px;
+  line-height: 1.4;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.body-text {
+  font-size: 14px;
+  line-height: 1.5;
+  font-weight: 400;
+}
+
+.label-small {
+  font-size: 12px;
+  line-height: 1.4;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+}
+
+.subtle-ai-glow {
+  box-shadow: 0 0 25px -5px rgba(16, 185, 129, 0.12);
+}
+
+.subtle-card-shadow {
+  box-shadow:
+    0 2px 10px rgba(0, 0, 0, 0.02),
+    0 1px 3px rgba(0, 0, 0, 0.015);
+}
+
+.premium-card-shadow {
+  box-shadow:
+    0 10px 30px -10px rgba(0, 0, 0, 0.04),
+    0 2px 8px -2px rgba(0, 0, 0, 0.02);
+}
+
+.auth-input {
+  display: block;
+  width: 100%;
+  margin-top: 0.5rem;
+  border: 1px solid #dfe7df;
+  border-radius: 0.75rem;
+  background: #fbfcfa;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 400;
+  outline: none;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.auth-input:focus {
+  border-color: #059669;
+  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.1);
+}
+
+:is(.dark, .catppuccin, .onedark) .auth-input {
+  border-color: #27272a;
+  background: #18181b;
+  color: #f4f4f5;
+}
+
+:is(.dark, .catppuccin, .onedark) .auth-input::placeholder {
+  color: #71717a;
+}
+
+:is(.dark, .catppuccin, .onedark) .auth-input:focus {
+  border-color: #10b981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.15);
+}
