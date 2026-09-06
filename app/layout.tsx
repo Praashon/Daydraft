@@ -19,8 +19,8 @@ export const metadata: Metadata = {
 };
 
 import { AppProvider } from "@/components/app-provider";
-
 import { ThemeProvider } from "@/components/theme-provider";
+import { NepalReliefBanner } from "@/components/nepal-relief-banner";
 
 export default function RootLayout({
   children,
@@ -66,14 +66,8 @@ export default function RootLayout({
         suppressHydrationWarning
         className="bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 min-h-screen selection:bg-emerald-500/10 selection:text-emerald-500 transition-colors duration-300"
       >
-        <script
-          src="https://cdn.jsdelivr.net/gh/clashrelated/nepal-relief-banner@1.0.2/banner.min.js"
-          integrity="sha384-zsV61Tmn6kfxMnauiuGMOgbTqBC6qhHBy/x0ne2M0sSSoK3q+xTlPs3ZMC8W/SUp"
-          crossOrigin="anonymous"
-          data-theme="auto"
-          data-lang="en"
-        />
         <ThemeProvider>
+          <NepalReliefBanner />
           <AppProvider>{children}</AppProvider>
         </ThemeProvider>
       </body>
