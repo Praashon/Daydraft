@@ -27,6 +27,7 @@ import {
 import confetti from "canvas-confetti";
 import { DeleteConfirmationModal } from "@/components/delete-confirmation-modal";
 import { createClient } from "@/lib/supabase/client";
+import { generateId } from "@/lib/utils";
 
 const STORAGE_KEYS = {
   TASKS: "daydraft_tasks_v1",
@@ -61,13 +62,13 @@ interface AppContextType {
   setIsSettingsOpen: React.Dispatch<React.SetStateAction<boolean>>;
   handleToggleTask: (id: string) => void;
   handleAddTask: (newTask: Task) => void;
-  handleDeleteTask: (id: string) => void;
-  handleBatchDeleteTasks: (ids: string[]) => void;
+  handleDeleteTask: (id: string, linkedPlanItems?: DailyPlanItem[]) => void;
+  handleBatchDeleteTasks: (ids: string[], linkedPlanItems?: DailyPlanItem[]) => void;
   handleUpdateTaskPriority: (id: string, newPriority: any) => void;
   handleTogglePlanItem: (id: string) => void;
   handleAddPlanItem: (item: DailyPlanItem) => void;
-  handleDeletePlanItem: (id: string) => void;
-  handleBatchDeletePlanItems: (ids: string[]) => void;
+  handleDeletePlanItem: (id: string, linkedTasks?: Task[]) => void;
+  handleBatchDeletePlanItems: (ids: string[], linkedTasks?: Task[]) => void;
   handleDeleteNote: (id: string) => void;
   handleBatchDeleteNotes: (ids: string[]) => void;
   restoreFromTrash: (id: string) => void;
@@ -683,10 +684,47 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [userState.trashExpiration, isHydrated, isDataLoaded]);
 
   useEffect(() => {
-    if (isHydrated && !userState.name) {
+    if (!isHydrated || !isDataLoaded) return;
+
+    const userKey = userState.username || "default";
+    const hasCompletedKey = `daydraft_onboarding_completed_${userKey}`;
+    const isFirstSession =
+      typeof window !== "undefined" &&
+      localStorage.getItem("daydraft_is_first_session") === "true";
+    const hasSeenLocally =
+      typeof window !== "undefined" &&
+      (localStorage.getItem(hasCompletedKey) === "true" ||
+        localStorage.getItem("daydraft_onboarding_completed") === "true");
+    const hasCompleted =
+      Boolean(userState.hasCompletedOnboarding) || hasSeenLocally;
+
+    if (isFirstSession && !hasCompleted) {
       setIsSettingsOpen(true);
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("daydraft_is_first_session");
+        localStorage.setItem(hasCompletedKey, "true");
+        localStorage.setItem("daydraft_onboarding_completed", "true");
+      }
+    } else if (!hasCompleted && !userState.name) {
+      const isFirstGuestVisit =
+        typeof window !== "undefined" &&
+        !localStorage.getItem("daydraft_guest_visited");
+      if (isFirstGuestVisit) {
+        setIsSettingsOpen(true);
+        if (typeof window !== "undefined") {
+          localStorage.setItem("daydraft_guest_visited", "true");
+          localStorage.setItem(hasCompletedKey, "true");
+          localStorage.setItem("daydraft_onboarding_completed", "true");
+        }
+      }
     }
-  }, [isHydrated, userState.name]);
+  }, [
+    isHydrated,
+    isDataLoaded,
+    userState.hasCompletedOnboarding,
+    userState.username,
+    userState.name,
+  ]);
 
   const handleToggleTask = (id: string) => {
     setTasks((prev) => {
@@ -712,36 +750,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setTasks((prev) => [newTask, ...prev]);
   };
 
-  const handleDeleteTask = (id: string) => {
+  const handleDeleteTask = (id: string, linkedPlanItems: DailyPlanItem[] = []) => {
     const t = tasksState.find((x) => x.id === id);
     if (!t) return;
     setDeleteTargetTasks([t]);
-    setDeleteTargetPlanItems([]);
+    setDeleteTargetPlanItems(linkedPlanItems);
     setDeleteModalOpen(true);
   };
 
-  const handleBatchDeleteTasks = (ids: string[]) => {
+  const handleBatchDeleteTasks = (ids: string[], linkedPlanItems: DailyPlanItem[] = []) => {
     const targetTasks = tasksState.filter((x) => ids.includes(x.id));
     if (targetTasks.length === 0) return;
     setDeleteTargetTasks(targetTasks);
-    setDeleteTargetPlanItems([]);
+    setDeleteTargetPlanItems(linkedPlanItems);
     setDeleteModalOpen(true);
   };
 
-  const handleDeletePlanItem = (id: string) => {
+  const handleDeletePlanItem = (id: string, linkedTasks: Task[] = []) => {
     const item = dailyPlanState.find((p) => p.id === id);
     if (!item) return;
-    setDeleteTargetTasks([]);
+    setDeleteTargetTasks(linkedTasks);
     setDeleteTargetPlanItems([item]);
     setDeleteModalOpen(true);
   };
 
-  const handleBatchDeletePlanItems = (ids: string[]) => {
+  const handleBatchDeletePlanItems = (ids: string[], linkedTasks: Task[] = []) => {
     const targetItems = dailyPlanState.filter(
       (p) => p.id && ids.includes(p.id),
     );
     if (targetItems.length === 0) return;
-    setDeleteTargetTasks([]);
+    setDeleteTargetTasks(linkedTasks);
     setDeleteTargetPlanItems(targetItems);
     setDeleteModalOpen(true);
   };
@@ -765,7 +803,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (
           (p.taskId && taskIdsToDelete.has(p.taskId)) ||
           deleteTargetTasks.some(
-            (t) => t.title.toLowerCase() === p.task.toLowerCase(),
+            (t) =>
+              t.title.toLowerCase() === p.task.toLowerCase() ||
+              t.title.toLowerCase().includes(p.task.toLowerCase()) ||
+              p.task.toLowerCase().includes(t.title.toLowerCase()),
           )
         ) {
           if (p.id) linkedPlanItemIdsToRemove.add(p.id);
@@ -773,17 +814,52 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       });
     }
 
+    const linkedTaskIdsToRemove = new Set<string>();
+    if (alsoRemoveLinkedSchedule && deleteTargetPlanItems.length > 0) {
+      tasksState.forEach((t) => {
+        if (
+          deleteTargetPlanItems.some(
+            (p) =>
+              p.taskId === t.id ||
+              p.task.toLowerCase() === t.title.toLowerCase() ||
+              p.task.toLowerCase().includes(t.title.toLowerCase()) ||
+              t.title.toLowerCase().includes(p.task.toLowerCase()),
+          )
+        ) {
+          linkedTaskIdsToRemove.add(t.id);
+        }
+      });
+    }
+
+    const allTaskIdsToRemove = new Set([
+      ...taskIdsToDelete,
+      ...linkedTaskIdsToRemove,
+    ]);
+
+    const allPlanIdsToRemove = new Set([
+      ...planItemIdsToDelete,
+      ...linkedPlanItemIdsToRemove,
+    ]);
+
     if (saveToTrash) {
       const newTrashItems: TrashItem[] = [];
-      deleteTargetTasks.forEach((task) => {
+      const handledPlanIdsInTrash = new Set<string>();
+
+      allTaskIdsToRemove.forEach((taskId) => {
+        const task = tasksState.find((t) => t.id === taskId);
+        if (!task) return;
+
         const linkedPlan = dailyPlanState.find(
           (p) =>
+            (p.id && allPlanIdsToRemove.has(p.id)) ||
             p.taskId === task.id ||
             p.task.toLowerCase() === task.title.toLowerCase(),
         );
+
         if (alsoRemoveLinkedSchedule && linkedPlan) {
+          if (linkedPlan.id) handledPlanIdsInTrash.add(linkedPlan.id);
           newTrashItems.push({
-            id: crypto.randomUUID(),
+            id: generateId(),
             type: "both",
             task: { ...task },
             planItem: { ...linkedPlan },
@@ -791,7 +867,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           });
         } else {
           newTrashItems.push({
-            id: crypto.randomUUID(),
+            id: generateId(),
             type: "task",
             task: { ...task },
             deletedAt: now,
@@ -799,17 +875,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
       });
 
-      deleteTargetPlanItems.forEach((planItem) => {
-        const alreadyCovered =
-          alsoRemoveLinkedSchedule &&
-          deleteTargetTasks.some(
-            (t) =>
-              t.id === planItem.taskId ||
-              t.title.toLowerCase() === planItem.task.toLowerCase(),
-          );
-        if (!alreadyCovered) {
+      allPlanIdsToRemove.forEach((planId) => {
+        if (handledPlanIdsInTrash.has(planId)) return;
+        const planItem = dailyPlanState.find((p) => p.id === planId);
+        if (planItem) {
           newTrashItems.push({
-            id: crypto.randomUUID(),
+            id: generateId(),
             type: "planItem",
             planItem: { ...planItem },
             deletedAt: now,
@@ -822,14 +893,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    if (taskIdsToDelete.size > 0) {
-      setTasks((prev) => prev.filter((t) => !taskIdsToDelete.has(t.id)));
+    if (allTaskIdsToRemove.size > 0) {
+      setTasks((prev) => prev.filter((t) => !allTaskIdsToRemove.has(t.id)));
     }
 
-    const allPlanIdsToRemove = new Set([
-      ...planItemIdsToDelete,
-      ...linkedPlanItemIdsToRemove,
-    ]);
     if (allPlanIdsToRemove.size > 0) {
       setDailyPlan((prev) =>
         prev.filter((p) => !p.id || !allPlanIdsToRemove.has(p.id)),
@@ -862,7 +929,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const handleAddPlanItem = (newItem: DailyPlanItem) => {
     setDailyPlan((prev) =>
-      [...prev, { ...newItem, id: crypto.randomUUID() }].sort((a, b) =>
+      [...prev, { ...newItem, id: generateId() }].sort((a, b) =>
         a.time.localeCompare(b.time),
       ),
     );
@@ -873,7 +940,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (!item) return;
     setTrash((prev) => [
       {
-        id: crypto.randomUUID(),
+        id: generateId(),
         type: "note" as const,
         note: item,
         deletedAt: new Date().toISOString(),
@@ -887,7 +954,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const items = notesState.filter((n) => ids.includes(n.id));
     if (items.length === 0) return;
     const newTrashItems = items.map((item) => ({
-      id: crypto.randomUUID(),
+      id: generateId(),
       type: "note" as const,
       note: item,
       deletedAt: new Date().toISOString(),
@@ -1015,13 +1082,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           <DeleteConfirmationModal
             tasks={deleteTargetTasks}
             planItems={deleteTargetPlanItems}
-            hasLinkedSchedule={deleteTargetTasks.some((t) =>
-              dailyPlanState.some(
-                (p) =>
-                  p.taskId === t.id ||
-                  p.task.toLowerCase() === t.title.toLowerCase(),
-              ),
-            )}
+            hasLinkedSchedule={
+              deleteTargetTasks.some((t) =>
+                dailyPlanState.some(
+                  (p) =>
+                    p.taskId === t.id ||
+                    p.task.toLowerCase() === t.title.toLowerCase() ||
+                    p.task.toLowerCase().includes(t.title.toLowerCase()) ||
+                    t.title.toLowerCase().includes(p.task.toLowerCase()),
+                ),
+              ) ||
+              deleteTargetPlanItems.some((p) =>
+                tasksState.some(
+                  (t) =>
+                    t.id === p.taskId ||
+                    t.title.toLowerCase() === p.task.toLowerCase() ||
+                    t.title.toLowerCase().includes(p.task.toLowerCase()) ||
+                    p.task.toLowerCase().includes(t.title.toLowerCase()),
+                ),
+              )
+            }
             onClose={() => {
               setDeleteModalOpen(false);
               setDeleteTargetTasks([]);

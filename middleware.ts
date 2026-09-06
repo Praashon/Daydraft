@@ -23,14 +23,30 @@ export async function middleware(request: NextRequest) {
     },
   });
 
+  const pathname = request.nextUrl.pathname;
+  const isAuthRoute = pathname === "/login" || pathname === "/signup";
+
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) {
+  if (!user && !isAuthRoute) {
     return NextResponse.redirect(new URL("/login", request.url));
+  }
+
+  if (user && isAuthRoute) {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
   return response;
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/tasks/:path*", "/calendar/:path*", "/notes/:path*", "/trash/:path*"],
+  matcher: [
+    "/dashboard/:path*",
+    "/tasks/:path*",
+    "/calendar/:path*",
+    "/notes/:path*",
+    "/trash/:path*",
+    "/profile/:path*",
+    "/login",
+    "/signup",
+  ],
 };

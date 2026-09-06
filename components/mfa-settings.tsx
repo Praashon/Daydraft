@@ -51,9 +51,7 @@ export function MFASettings() {
             friendly_name: f.friendly_name || "Authenticator App",
           });
         });
-      } catch {
-        // Continue if MFA listing fails
-      }
+      } catch {}
 
       try {
         if (supabase.auth.passkey) {
@@ -68,9 +66,7 @@ export function MFASettings() {
             });
           }
         }
-      } catch {
-        // Continue if passkey listing is disabled or fails
-      }
+      } catch {}
 
       setFactors(unified);
     } catch (err: unknown) {

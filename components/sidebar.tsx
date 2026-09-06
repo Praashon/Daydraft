@@ -142,16 +142,16 @@ export function Sidebar({
                 onViewChange(item.id);
                 if (isOpenMobile && onCloseMobile) onCloseMobile();
               }}
-              className={`w-full flex items-center ${isActuallyCollapsed ? 'justify-center' : 'justify-between'} px-3 py-2.5 rounded-xl text-[14px] font-medium transition-all ${
+              className={`w-full flex items-center ${isActuallyCollapsed ? 'justify-center' : 'justify-between'} px-3 py-2.5 rounded-xl text-[14px] font-medium transition-all duration-150 active:scale-[0.97] cursor-pointer ${
                 isActive
-                  ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-semibold border border-zinc-200 dark:border-zinc-700"
+                  ? "bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 font-semibold border border-zinc-200 dark:border-zinc-700 shadow-xs"
                   : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-zinc-800/50"
               }`}
               title={isActuallyCollapsed ? item.label : undefined}
             >
               <div className="flex items-center gap-3">
                 <Icon
-                  className={`w-4 h-4 ${
+                  className={`w-4 h-4 transition-transform duration-150 group-hover:scale-110 ${
                     isActive ? "text-emerald-600 dark:text-emerald-500" : "text-zinc-500 dark:text-zinc-400"
                   }`}
                 />
@@ -172,7 +172,7 @@ export function Sidebar({
         <div className={`flex ${isActuallyCollapsed ? 'flex-col gap-2' : 'flex-row items-center justify-between gap-1'} px-1`}>
           <button
             onClick={onOpenSettings}
-            className={`flex items-center gap-3 p-2 rounded-xl text-[14px] font-medium text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all ${!isActuallyCollapsed && 'flex-1'}`}
+            className={`flex items-center gap-3 p-2 rounded-xl text-[14px] font-medium text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all duration-150 active:scale-95 cursor-pointer ${!isActuallyCollapsed && 'flex-1'}`}
             title={isActuallyCollapsed ? "Settings" : undefined}
           >
             <Settings className="w-4 h-4" />
@@ -181,7 +181,7 @@ export function Sidebar({
           
           <button
             onClick={toggleTheme}
-            className="p-2 rounded-xl text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all"
+            className="p-2 rounded-xl text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all duration-150 active:scale-90 cursor-pointer"
             title="Toggle theme"
           >
             <Sun className="w-4 h-4 hidden dark:block" />
@@ -190,7 +190,7 @@ export function Sidebar({
 
           <button
             onClick={handleLogout}
-            className="p-2 rounded-xl text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all"
+            className="p-2 rounded-xl text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all duration-150 active:scale-90 cursor-pointer"
             title="Log out"
           >
             <LogOut className="w-4 h-4" />
@@ -202,7 +202,7 @@ export function Sidebar({
             onViewChange("profile");
             if (isOpenMobile && onCloseMobile) onCloseMobile();
           }}
-          className={`flex items-center ${isActuallyCollapsed ? 'justify-center p-1.5' : 'justify-between p-2.5'} rounded-xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 transition-all cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800 group`}
+          className={`flex items-center ${isActuallyCollapsed ? 'justify-center p-1.5' : 'justify-between p-2.5'} rounded-xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 transition-all duration-150 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800 active:scale-[0.98] group`}
         >
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="relative w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center font-medium text-xs overflow-hidden shrink-0 group-hover:ring-2 ring-emerald-500/50 transition-all">

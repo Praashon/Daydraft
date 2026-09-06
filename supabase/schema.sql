@@ -17,6 +17,9 @@ create policy "Profiles are publicly readable for username lookup"
   on public.profiles for select
   using (true);
 
+-- Protect user email addresses from public/anonymous REST scraping
+revoke select (email) on public.profiles from anon;
+
 create policy "Users can insert their own profile"
   on public.profiles for insert
   with check (auth.uid() = id);

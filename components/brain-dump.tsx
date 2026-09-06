@@ -87,7 +87,7 @@ export function BrainDump({
                 ? setShowProviderMenu(!showProviderMenu)
                 : openSettings()
             }
-            className="self-start sm:self-auto flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 hover:bg-[#EEF2FF] hover:border-emerald-600 dark:border-emerald-500/30 transition-all text-xs font-medium text-zinc-500 dark:text-zinc-400 hover:text-emerald-600 dark:text-emerald-500 cursor-pointer group shrink-0"
+            className="self-start sm:self-auto flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900 hover:bg-[#EEF2FF] hover:border-emerald-600 dark:border-emerald-500/30 transition-all text-xs font-medium text-zinc-500 dark:text-zinc-400 hover:text-emerald-600 dark:text-emerald-500 cursor-pointer group shrink-0 active:scale-95"
             title={
               hasBothKeys ? "Switch AI Engine" : "Click to configure AI Engine"
             }
@@ -128,7 +128,7 @@ export function BrainDump({
                   setLocalProvider("openrouter");
                   setShowProviderMenu(false);
                 }}
-                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors ${activeProvider === "openrouter" ? "bg-emerald-600/10 text-emerald-600 dark:text-emerald-500 font-semibold" : "hover:bg-zinc-50 dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100"}`}
+                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors active:scale-95 ${activeProvider === "openrouter" ? "bg-emerald-600/10 text-emerald-600 dark:text-emerald-500 font-semibold" : "hover:bg-zinc-50 dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100"}`}
               >
                 <Globe className="w-3.5 h-3.5" /> OpenRouter
               </button>
@@ -138,7 +138,7 @@ export function BrainDump({
                   setLocalProvider("gemini");
                   setShowProviderMenu(false);
                 }}
-                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors ${activeProvider === "gemini" ? "bg-amber-50/50 text-amber-600 font-semibold" : "hover:bg-zinc-50 dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100"}`}
+                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors active:scale-95 ${activeProvider === "gemini" ? "bg-amber-50/50 text-amber-600 font-semibold" : "hover:bg-zinc-50 dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100"}`}
               >
                 <Zap className="w-3.5 h-3.5" /> Google Gemini
               </button>
@@ -162,7 +162,7 @@ export function BrainDump({
           <button
             type="button"
             onClick={() => setText("")}
-            className="absolute top-0 right-0 p-1.5 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:text-zinc-100 rounded-lg hover:bg-zinc-50 dark:bg-zinc-900 transition-colors"
+            className="absolute top-0 right-0 p-1.5 text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:text-zinc-100 rounded-lg hover:bg-zinc-50 dark:bg-zinc-900 transition-all active:scale-90"
             title="Clear text"
           >
             <X className="w-4 h-4" />
@@ -181,7 +181,7 @@ export function BrainDump({
               key={preset.label}
               type="button"
               onClick={() => handleApplyPreset(preset.text)}
-              className="label-small px-2.5 py-1 rounded-full bg-zinc-50 dark:bg-zinc-900 hover:bg-[#EEF2FF] hover:text-emerald-600 dark:text-emerald-500 text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-800 transition-all"
+              className="label-small px-2.5 py-1 rounded-full bg-zinc-50 dark:bg-zinc-900 hover:bg-[#EEF2FF] hover:text-emerald-600 dark:text-emerald-500 text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-800 transition-all active:scale-95 cursor-pointer"
             >
               {preset.label}
             </button>
@@ -197,7 +197,7 @@ export function BrainDump({
             type="button"
             onClick={() => handleSubmit()}
             disabled={!text.trim() || isLoading}
-            className="relative inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[14px] font-medium transition-all shadow-sm active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            className="relative inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[14px] font-medium transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5 active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             <ListChecks className="w-4 h-4 text-white/90" />
             <span>{isLoading ? "Organizing..." : "Organize my thoughts"}</span>

@@ -93,9 +93,7 @@ export function ThemeProvider({
       if (storedLanding === "dark" || storedLanding === "light") {
         setLandingTheme(storedLanding);
       }
-    } catch {
-      // Ignore localStorage errors
-    }
+    } catch {}
   }, []);
 
   useEffect(() => {

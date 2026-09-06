@@ -1,5 +1,5 @@
 import { GoogleGenAI } from "@google/genai";
-import { AIOrganizeResponse, Task, Priority } from "@/types";
+import { AIOrganizeResponse, Task, Priority, DailyPlanItem, FocusTask } from "@/types";
 import { generateId } from "./utils";
 
 const SYSTEM_PROMPT = `You are the quiet, intelligent cognitive engine of Daydraft, a premium productivity system.
@@ -11,8 +11,8 @@ Return ONLY a valid JSON object strictly matching this schema:
 {
   "tasks": [
     {
-      "id": "unique-id",
-      "title": "Clear, actionable task title starting with an active verb (do not just copy verbatim text)",
+      "id": "task_1",
+      "title": "Clear, actionable task title starting with an active verb",
       "priority": "high | medium | low",
       "deadline": "Extracted deadline string or null/empty if none",
       "category": "Work | Academics | Personal | Health | Errands | Finance | Other",
@@ -21,40 +21,48 @@ Return ONLY a valid JSON object strictly matching this schema:
   ],
   "focusTask": {
     "title": "Title of the single most crucial task to tackle first",
-    "reason": "1 short, clear sentence explaining why this task takes precedence"
+    "reason": "1 short, clear sentence explaining why this task takes precedence",
+    "taskId": "task_1"
   },
   "dailyPlan": [
     {
       "time": "HH:MM",
-      "task": "Task title",
-      "description": "Short 1-line guidance on approach or context"
+      "task": "Task title directly mapping to one of the tasks above",
+      "description": "Short 1-line guidance on approach or context",
+      "taskId": "task_1"
     }
   ],
   "insight": "1 short, clear sentence offering strategic perspective on today's goals. Do not repeat the tasks, synthesize the intent.",
   "notes": [
     {
-      "id": "unique-id-note",
+      "id": "note_1",
       "title": "A beautiful, overarching heading summarizing the themes of the user's notes/questions",
       "content": "Detailed content containing all the facts, calculations, and answers clearly formatted."
     }
   ]
 }
 
-Rules:
-- High priority: strict immediate deadlines, high impact, or blocking items.
-- Medium priority: important but flexible within 2-3 days.
-- Low priority: quick errands, casual check-ins, or routine maintenance.
-- Synthesize and compress the raw thoughts into crisp, professional task titles. Do not just copy the user's input word-for-word.
+CRITICAL RULES FOR TASKS:
+1. ATOMIC TASKS: NEVER merge or concatenate multiple distinct activities, projects, topics, or goals into a single run-on task.
+2. If the user mentions working on a project, configuring gaming, evaluating AI tokens, studying, running errands, create SEPARATE atomic task objects for EACH distinct item.
+3. Every task title must be concise, crisp, and start with an active imperative verb (e.g. "Define store requirements for Project Quivo", "Set up FIFA gaming station", "Evaluate AI Token options").
+4. Assign accurate categories: "Work" for business, coding, project specifications; "Personal" for gaming, hobbies, leisure; "Finance" for crypto, tokens, budgeting, invoices; "Academics" for school, exams, homework; "Health" for fitness, gym, doctor; "Errands" for groceries, shopping, chores.
+5. High priority: strict immediate deadlines, high impact, or blocking items. Medium priority: important but flexible within 2-3 days. Low priority: quick errands, leisure, or routine maintenance.
 
-NOTES RULES - READ CAREFULLY AND FOLLOW WITHOUT EXCEPTION:
+CRITICAL RULES FOR DAILY PLAN:
+1. Every item in "dailyPlan" MUST directly link to one task in the "tasks" array.
+2. The "taskId" property in "dailyPlan" MUST match the "id" of the corresponding task (e.g. "task_1").
+3. Distribute the daily plan across sensible realistic working hours (e.g. "09:00", "10:30", "13:00", "15:00", "17:00").
+
+NOTES RULES:
 1. Scan the ENTIRE brain dump for every question, calculation, fact request, thought, or curiosity.
 2. If there are notes, questions, or facts requested, generate EXACTLY ONE note object in the "notes" array that consolidates everything from this brain dump.
-3. The "title" MUST be a beautiful, overarching heading summarizing the theme of their thoughts (e.g., "Physics Exploration & Daily Musings", "Travel Logistics & Math Calculations").
-4. The "content" MUST contain all the individual questions and their detailed, factual answers, separated clearly (e.g., using "Q:" and "A:" or bullet points).
-5. You MUST answer EVERY SINGLE ONE of their questions. Do not skip any. Show formulas for math/science. Give definitive factual answers.
-6. IF the user explicitly asks for "just notes", or ends their prompt indicating they ONLY want notes (e.g., "just notes"), you MUST return empty arrays for "tasks" and "dailyPlan", and an empty object or dummy object for "focusTask". Only provide the "notes" and "insight".
+3. The "title" MUST be a beautiful, overarching heading summarizing the theme of their thoughts (e.g. "Lenovo Legion 5 Pro Specifications and Pricing").
+4. The "content" MUST contain all the individual questions and their detailed, factual answers, separated clearly with bullet points or Q and A formatting.
+5. Answer every question directly with factual precision.
+6. If the user explicitly asks for "just notes", return empty arrays for "tasks" and "dailyPlan", and only provide "notes" and "insight".
 
-- Return ONLY the JSON object. No surrounding markdown backticks if possible, but if included, ensure valid JSON.`;
+Return ONLY the JSON object.`;
 
 export function generateLocalFallback(input: string): AIOrganizeResponse {
   const cleanInput = input.trim();
@@ -92,10 +100,10 @@ export function generateLocalFallback(input: string): AIOrganizeResponse {
 
     let category = "Personal";
     if (/assignment|react|code|dev|study|class|exam|homework|paper/i.test(lower)) category = "Academics";
-    else if (/meeting|client|presentation|report|investor|deck|bug|review|email|work/i.test(lower)) category = "Work";
+    else if (/meeting|client|presentation|report|investor|deck|bug|review|email|work|quivo|store/i.test(lower)) category = "Work";
     else if (/workout|gym|run|fitness|health|doctor|dentist|sleep/i.test(lower)) category = "Health";
     else if (/buy|groceries|order|shop|clean|post office|errand/i.test(lower)) category = "Errands";
-    else if (/budget|tax|invoice|bill|pay|bank/i.test(lower)) category = "Finance";
+    else if (/budget|tax|invoice|bill|pay|bank|token|crypto/i.test(lower)) category = "Finance";
 
     let title = clause
       .replace(/^i (need to|should|want to|have to|must|will|am going to|ought to)\s+/i, "")
@@ -135,19 +143,21 @@ export function generateLocalFallback(input: string): AIOrganizeResponse {
     taskId: highPriority.id,
   };
 
-  const times = ["09:00", "11:30", "14:00", "16:30", "19:00"];
+  const times = ["09:00", "10:30", "13:00", "15:00", "17:00"];
   const dailyPlan = tasks.slice(0, 5).map((t, index) => {
     let desc = "Dedicated execution block";
     if (t.priority === "high") desc = "High-leverage focus block - eliminate distractions";
-    else if (t.category === "Errands") desc = "Midday movement & physical reset";
+    else if (t.category === "Errands") desc = "Midday movement and physical reset";
     else if (t.category === "Health") desc = "Recharge energy and physical vitality";
     else if (t.category === "Personal") desc = "Social connection and evening wind-down";
 
     return {
+      id: generateId(),
       time: times[index] || "18:00",
       task: t.title,
       description: desc,
       completed: false,
+      taskId: t.id,
     };
   });
 
@@ -189,15 +199,23 @@ function sanitizeOrganizeResponse(parsed: any): AIOrganizeResponse {
   const cleanText = (value: unknown, fallback = "") =>
     typeof value === "string" ? value.replace(/\u2014/g, " - ") : fallback;
 
-  const sanitizedTasks: Task[] = (parsed.tasks || []).map((t: any) => ({
-    id: generateId(),
-    title: cleanText(t.title, "Untitled task"),
-    priority: ["high", "medium", "low"].includes(t.priority) ? t.priority : "medium",
-    deadline: cleanText(t.deadline) || undefined,
-    category: cleanText(t.category, "General"),
-    completed: false,
-    createdAt: new Date().toISOString(),
-  }));
+  const rawTasks = Array.isArray(parsed.tasks) ? parsed.tasks : [];
+  const taskIdMap = new Map<string, string>();
+
+  const sanitizedTasks: Task[] = rawTasks.map((t: any, idx: number) => {
+    const generated = generateId();
+    if (t.id) taskIdMap.set(String(t.id), generated);
+    taskIdMap.set(`task_${idx + 1}`, generated);
+    return {
+      id: generated,
+      title: cleanText(t.title, "Untitled task"),
+      priority: ["high", "medium", "low"].includes(t.priority) ? t.priority : "medium",
+      deadline: cleanText(t.deadline) || undefined,
+      category: cleanText(t.category, "General"),
+      completed: false,
+      createdAt: new Date().toISOString(),
+    };
+  });
 
   const sanitizedNotes = (parsed.notes || []).map((n: any) => ({
     id: generateId(),
@@ -208,23 +226,49 @@ function sanitizeOrganizeResponse(parsed: any): AIOrganizeResponse {
 
   let focusTask = undefined;
   if (parsed.focusTask?.title || sanitizedTasks.length > 0) {
+    const rawFocusTaskId = parsed.focusTask?.taskId ? String(parsed.focusTask.taskId) : undefined;
+    const mappedTaskId = rawFocusTaskId ? taskIdMap.get(rawFocusTaskId) : undefined;
     focusTask = {
       title: cleanText(parsed.focusTask?.title, sanitizedTasks[0]?.title || "Primary focus"),
       reason: cleanText(parsed.focusTask?.reason, "Highest cognitive priority for today."),
-      taskId: sanitizedTasks[0]?.id,
+      taskId: mappedTaskId || sanitizedTasks[0]?.id,
     };
   }
+
+  const sanitizedDailyPlan: DailyPlanItem[] = (parsed.dailyPlan || []).map((p: any, idx: number) => {
+    const planTitle = cleanText(p.task, "Task");
+    let matchedTaskId: string | undefined = undefined;
+
+    if (p.taskId && taskIdMap.has(String(p.taskId))) {
+      matchedTaskId = taskIdMap.get(String(p.taskId));
+    } else {
+      const lowerPlanTitle = planTitle.toLowerCase();
+      const matched = sanitizedTasks.find(
+        (t) =>
+          lowerPlanTitle.includes(t.title.toLowerCase()) ||
+          t.title.toLowerCase().includes(lowerPlanTitle)
+      );
+      if (matched) {
+        matchedTaskId = matched.id;
+      } else if (sanitizedTasks.length > 0) {
+        matchedTaskId = sanitizedTasks[idx % sanitizedTasks.length]?.id;
+      }
+    }
+
+    return {
+      id: generateId(),
+      time: cleanText(p.time, "09:00"),
+      task: planTitle,
+      description: cleanText(p.description) || undefined,
+      completed: false,
+      taskId: matchedTaskId,
+    };
+  });
 
   return {
     tasks: sanitizedTasks,
     focusTask: focusTask as any,
-    dailyPlan: (parsed.dailyPlan || []).map((p: any) => ({
-      id: generateId(),
-      time: cleanText(p.time, "09:00"),
-      task: cleanText(p.task, "Task"),
-      description: cleanText(p.description) || undefined,
-      completed: false,
-    })),
+    dailyPlan: sanitizedDailyPlan,
     insight: cleanText(
       parsed.insight,
       "You have a well-structured set of priorities today. Focus on one task at a time."
@@ -354,3 +398,239 @@ export async function organizeThoughts(
 
   return generateLocalFallback(text);
 }
+
+export interface RebalancePlanOptions {
+  tasks: Task[];
+  dailyPlan?: DailyPlanItem[];
+  provider?: "openrouter" | "gemini";
+  apiKey?: string;
+  model?: string;
+}
+
+export interface RebalancePlanResponse {
+  focusTask: FocusTask;
+  dailyPlan: DailyPlanItem[];
+  insight: string;
+}
+
+export function localRebalancePlan(
+  tasks: Task[],
+  existingPlan: DailyPlanItem[] = []
+): RebalancePlanResponse {
+  if (!tasks || tasks.length === 0) {
+    return {
+      focusTask: {
+        title: "All tasks completed",
+        reason: "Your workspace is clear. Take a breath or capture new thoughts.",
+      },
+      dailyPlan: [],
+      insight: "All priorities are cleared. Take time to recharge or draft your next goals.",
+    };
+  }
+
+  const incompleteTasks = tasks.filter((t) => !t.completed);
+  const completedTasks = tasks.filter((t) => t.completed);
+
+  if (incompleteTasks.length === 0) {
+    return {
+      focusTask: {
+        title: "All tasks completed!",
+        reason: "You've successfully completed all active priorities for today.",
+      },
+      dailyPlan: existingPlan.map((p) => ({ ...p, completed: true })),
+      insight: "Outstanding momentum today. Every scheduled task has been checked off.",
+    };
+  }
+
+  const priorityWeight: Record<Priority, number> = { high: 3, medium: 2, low: 1 };
+  const sortedIncomplete = [...incompleteTasks].sort(
+    (a, b) => (priorityWeight[b.priority] || 1) - (priorityWeight[a.priority] || 1)
+  );
+
+  const topTask = sortedIncomplete[0];
+  const focusTask: FocusTask = {
+    title: topTask.title,
+    reason:
+      topTask.priority === "high"
+        ? (topTask.deadline
+            ? `Immediate deadline (${topTask.deadline}) with highest leverage.`
+            : "High impact priority demanding your immediate cognitive energy.")
+        : "Next sequential priority in your schedule to maintain daily momentum.",
+    taskId: topTask.id,
+  };
+
+  const times = ["09:00", "10:30", "13:00", "15:00", "17:00", "18:30"];
+  const updatedPlan: DailyPlanItem[] = [];
+
+  existingPlan.forEach((p) => {
+    if (p.completed && p.taskId && completedTasks.some((t) => t.id === p.taskId)) {
+      updatedPlan.push(p);
+    }
+  });
+
+  sortedIncomplete.slice(0, 6).forEach((task, idx) => {
+    const existingForTask = existingPlan.find(
+      (p) => p.taskId === task.id || p.task.toLowerCase() === task.title.toLowerCase()
+    );
+
+    let desc = "Dedicated execution block";
+    if (task.priority === "high") desc = "High-leverage focus block - eliminate distractions";
+    else if (task.category === "Errands") desc = "Midday errand and active reset";
+    else if (task.category === "Health") desc = "Recharge energy and physical vitality";
+    else if (task.category === "Personal") desc = "Personal focus and evening wind-down";
+
+    updatedPlan.push({
+      id: existingForTask?.id || generateId(),
+      time: existingForTask?.time || times[idx] || "18:00",
+      task: task.title,
+      description: existingForTask?.description || desc,
+      completed: false,
+      taskId: task.id,
+    });
+  });
+
+  updatedPlan.sort((a, b) => a.time.localeCompare(b.time));
+
+  const highIncompleteCount = incompleteTasks.filter((t) => t.priority === "high").length;
+  let insight = `You have ${incompleteTasks.length} remaining tasks. Focus on "${topTask.title}" next.`;
+  if (highIncompleteCount >= 2) {
+    insight = `You have ${highIncompleteCount} high-priority tasks remaining. Protect your deep work focus.`;
+  } else if (incompleteTasks.length === 1) {
+    insight = `Final push for the day: finish "${topTask.title}" to wrap up today's goals.`;
+  }
+
+  return {
+    focusTask,
+    dailyPlan: updatedPlan,
+    insight,
+  };
+}
+
+export async function rebalancePlan(
+  options: RebalancePlanOptions
+): Promise<RebalancePlanResponse> {
+  const { tasks, dailyPlan = [], provider = "openrouter", apiKey, model } = options;
+
+  if (!tasks || tasks.length === 0) {
+    return localRebalancePlan([], []);
+  }
+
+  const prompt = `The user's tasks and daily schedule have been updated.
+Current tasks:
+${JSON.stringify(tasks.map((t) => ({ id: t.id, title: t.title, priority: t.priority, completed: t.completed, category: t.category })), null, 2)}
+
+Current daily schedule:
+${JSON.stringify(dailyPlan.map((p) => ({ time: p.time, task: p.task, completed: p.completed, taskId: p.taskId })), null, 2)}
+
+Rebalance the schedule and determine the next focus task.
+Rules:
+1. "focusTask": Select the single most important incomplete task to work on next, with a 1-sentence strategic reason and its matching "taskId". If all are completed, indicate that all are completed.
+2. "dailyPlan": Provide realistic chronological schedule blocks for the tasks (format: "HH:MM", "task", "description", and exact "taskId" linking to the task id). Ensure remaining tasks have blocks assigned.
+3. "insight": 1 concise, strategic sentence synthesizing today's remaining workload.
+
+Return ONLY a valid JSON object matching:
+{
+  "focusTask": { "title": "...", "reason": "...", "taskId": "..." },
+  "dailyPlan": [ { "time": "HH:MM", "task": "...", "description": "...", "taskId": "..." } ],
+  "insight": "..."
+}`;
+
+  if (provider === "gemini") {
+    const geminiKey = apiKey || process.env.GEMINI_API_KEY;
+    if (geminiKey) {
+      try {
+        const client = new GoogleGenAI({ apiKey: geminiKey });
+        const response = await client.models.generateContent({
+          model: model || "gemini-2.5-flash",
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+          config: {
+            temperature: 0.2,
+            responseMimeType: "application/json",
+          },
+        });
+        const text = response.text || "";
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          return {
+            focusTask: parsed.focusTask || localRebalancePlan(tasks, dailyPlan).focusTask,
+            dailyPlan:
+              Array.isArray(parsed.dailyPlan) && parsed.dailyPlan.length > 0
+                ? parsed.dailyPlan.map((p: any) => ({
+                    id: generateId(),
+                    time: p.time || "09:00",
+                    task: p.task || "Task",
+                    description: p.description,
+                    completed: Boolean(p.completed),
+                    taskId:
+                      p.taskId ||
+                      tasks.find(
+                        (t) => t.title.toLowerCase() === (p.task || "").toLowerCase()
+                      )?.id,
+                  }))
+                : localRebalancePlan(tasks, dailyPlan).dailyPlan,
+            insight: parsed.insight || localRebalancePlan(tasks, dailyPlan).insight,
+          };
+        }
+      } catch (e) {
+        console.warn("Gemini rebalancePlan failed, falling back to local algorithm:", e);
+      }
+    }
+  }
+
+  if (provider === "openrouter") {
+    const openRouterKey = apiKey || process.env.OPENROUTER_API_KEY;
+    if (openRouterKey) {
+      try {
+        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${openRouterKey}`,
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://daydraft.net",
+            "X-Title": "Daydraft",
+          },
+          body: JSON.stringify({
+            model: model || "openrouter/free",
+            messages: [{ role: "user", content: prompt }],
+            temperature: 0.2,
+          }),
+        });
+        if (response.ok) {
+          const data = await response.json();
+          const rawContent = (data.choices?.[0]?.message?.content || "")
+            .replace(/<think>[\s\S]*?<\/think>/gi, "")
+            .trim();
+          const jsonMatch = rawContent.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0]);
+            return {
+              focusTask: parsed.focusTask || localRebalancePlan(tasks, dailyPlan).focusTask,
+              dailyPlan:
+                Array.isArray(parsed.dailyPlan) && parsed.dailyPlan.length > 0
+                  ? parsed.dailyPlan.map((p: any) => ({
+                      id: generateId(),
+                      time: p.time || "09:00",
+                      task: p.task || "Task",
+                      description: p.description,
+                      completed: Boolean(p.completed),
+                      taskId:
+                        p.taskId ||
+                        tasks.find(
+                          (t) => t.title.toLowerCase() === (p.task || "").toLowerCase()
+                        )?.id,
+                    }))
+                  : localRebalancePlan(tasks, dailyPlan).dailyPlan,
+              insight: parsed.insight || localRebalancePlan(tasks, dailyPlan).insight,
+            };
+          }
+        }
+      } catch (e) {
+        console.warn("OpenRouter rebalancePlan failed, falling back to local algorithm:", e);
+      }
+    }
+  }
+
+  return localRebalancePlan(tasks, dailyPlan);
+}
+

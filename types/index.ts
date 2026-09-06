@@ -97,4 +97,5 @@ export interface UserProfile {
   customCss?: string;
   sidebarOption?: SidebarOption;
   savedThemes?: SavedTheme[];
+  hasCompletedOnboarding?: boolean;
 }

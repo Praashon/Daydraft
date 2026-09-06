@@ -28,6 +28,7 @@ import {
   SavedTheme,
 } from "@/types";
 import { useTheme } from "@/components/theme-provider";
+import { generateId } from "@/lib/utils";
 
 interface SettingsModalProps {
   isOpen: boolean;
@@ -277,7 +278,7 @@ export function SettingsModal({
       return;
     }
     const newTheme: SavedTheme = {
-      id: crypto.randomUUID(),
+      id: generateId(),
       name: trimmedName,
       css: newThemeCss,
       createdAt: new Date().toISOString(),
@@ -319,8 +320,24 @@ export function SettingsModal({
     }
   };
 
+  const handleClose = () => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("daydraft_onboarding_completed", "true");
+      if (user.username) {
+        localStorage.setItem(`daydraft_onboarding_completed_${user.username}`, "true");
+      }
+    }
+    onClose();
+  };
+
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
+    if (typeof window !== "undefined") {
+      localStorage.setItem("daydraft_onboarding_completed", "true");
+      if (user.username) {
+        localStorage.setItem(`daydraft_onboarding_completed_${user.username}`, "true");
+      }
+    }
     onSaveUser({
       ...user,
       name: name.trim(),
@@ -330,6 +347,7 @@ export function SettingsModal({
       activeTheme,
       savedThemes,
       sidebarOption,
+      hasCompletedOnboarding: true,
     });
     const isBuiltin = BUILTIN_THEMES.some((t) => t.id === activeTheme);
     if (isBuiltin) setTheme(activeTheme);
@@ -359,7 +377,7 @@ export function SettingsModal({
             </p>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="p-1.5 rounded-lg text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
           >
             <X className="w-5 h-5" />

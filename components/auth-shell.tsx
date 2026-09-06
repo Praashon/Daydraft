@@ -2,10 +2,10 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { ArrowLeft, Mail, CheckCircle2, RefreshCw, ArrowRight, Crop } from "lucide-react";
+import { ArrowLeft, Mail, CheckCircle2, RefreshCw, ArrowRight, Crop, AlertCircle } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ImageCropModal } from "@/components/image-crop-modal";
 
@@ -78,6 +78,92 @@ export function AuthShell({
   const score = passwordScore(password);
   const passwordsMatch = !confirmation || password === confirmation;
 
+  const [usernameStatus, setUsernameStatus] = useState<
+    "idle" | "checking" | "available" | "taken" | "invalid"
+  >("idle");
+  const [usernameFeedback, setUsernameFeedback] = useState("");
+  const [usernameSuggestions, setUsernameSuggestions] = useState<string[]>([]);
+  const [isNavigating, setIsNavigating] = useState(false);
+
+  useEffect(() => {
+    if (mode === "login" || mode === "signup") {
+      try {
+        const supabase = createClient();
+        supabase.auth.getSession().then(({ data: { session } }) => {
+          if (session) {
+            setIsNavigating(true);
+            window.location.assign("/dashboard");
+          }
+        });
+      } catch {}
+    }
+  }, [mode]);
+
+  useEffect(() => {
+    if (mode !== "signup") return;
+    const cleanUsername = username.trim().toLowerCase();
+    if (!cleanUsername) {
+      setUsernameStatus("idle");
+      setUsernameFeedback("");
+      setUsernameSuggestions([]);
+      return;
+    }
+
+    if (cleanUsername.length < 3) {
+      setUsernameStatus("invalid");
+      setUsernameFeedback("Username must be at least 3 characters.");
+      setUsernameSuggestions([]);
+      return;
+    }
+
+    if (!/^[a-z0-9._]{3,24}$/.test(cleanUsername)) {
+      setUsernameStatus("invalid");
+      setUsernameFeedback("Use 3 to 24 letters, numbers, periods, or underscores.");
+      setUsernameSuggestions([]);
+      return;
+    }
+
+    setUsernameStatus("checking");
+    setUsernameFeedback("Checking availability...");
+
+    let active = true;
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `/api/auth/username?username=${encodeURIComponent(cleanUsername)}`
+        );
+        if (!active) return;
+        if (!res.ok) {
+          setUsernameStatus("invalid");
+          setUsernameFeedback("Username lookup is currently unavailable.");
+          return;
+        }
+        const data = await res.json();
+        if (!active) return;
+
+        if (data.available) {
+          setUsernameStatus("available");
+          setUsernameFeedback("Username is available");
+          setUsernameSuggestions([]);
+        } else {
+          setUsernameStatus("taken");
+          setUsernameFeedback("This username is already used.");
+          setUsernameSuggestions(data.suggestions || []);
+        }
+      } catch {
+        if (active) {
+          setUsernameStatus("invalid");
+          setUsernameFeedback("Network error checking username.");
+        }
+      }
+    }, 300);
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [username, mode]);
+
   const handleAvatarFile = (file: File | undefined) => {
     if (
       !file ||
@@ -101,25 +187,41 @@ export function AuthShell({
     setError("");
     setMessage("");
     setBusy(true);
+    let navigating = false;
     try {
       const supabase = createClient();
       if (mode === "login") {
         const identity = emailOrUsername.trim().toLowerCase();
-        const loginEmail = identity.includes("@")
-          ? identity
-          : await fetch(
-              `/api/auth/username?username=${encodeURIComponent(identity)}`,
-            ).then(async (response) => {
-              const data = await response.json();
-              if (!response.ok) throw new Error(data.error);
-              return data.email;
-            });
-        const result = await supabase.auth.signInWithPassword({
-          email: loginEmail,
-          password,
+        if (!identity) {
+          throw new Error("Enter your username or email address.");
+        }
+        if (!password) {
+          throw new Error("Enter your account password.");
+        }
+
+        const loginRes = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ identity, password }),
         });
-        if (result.error) throw result.error;
-        router.push("/dashboard");
+
+        const loginData = await loginRes.json().catch(() => ({}));
+        if (!loginRes.ok) {
+          throw new Error(loginData.error || "Unable to sign in. Check your credentials.");
+        }
+
+        if (loginData.session) {
+          await supabase.auth.setSession({
+            access_token: loginData.session.access_token,
+            refresh_token: loginData.session.refresh_token,
+          });
+        }
+
+        navigating = true;
+        setIsNavigating(true);
+        router.refresh();
+        window.location.assign("/dashboard");
+        return;
       } else if (mode === "forgot") {
         const result = await supabase.auth.resetPasswordForEmail(
           email.trim().toLowerCase(),
@@ -140,6 +242,13 @@ export function AuthShell({
       } else {
         const normalizedEmail = email.trim().toLowerCase();
         const normalizedUsername = username.trim().toLowerCase();
+
+        if (usernameStatus === "taken") {
+          throw new Error("This username is already used. Please choose another username.");
+        }
+        if (usernameStatus === "checking") {
+          throw new Error("Checking username availability. Please wait a moment.");
+        }
         if (!/^[a-z0-9._]{3,24}$/.test(normalizedUsername))
           throw new Error(
             "Username must be 3 to 24 characters using letters, numbers, periods, or underscores.",
@@ -163,26 +272,24 @@ export function AuthShell({
           throw new Error(
             "That password has appeared in a breach. Choose a different one.",
           );
+
         const availabilityRes = await fetch(
           `/api/auth/username?username=${encodeURIComponent(normalizedUsername)}`,
         );
         if (!availabilityRes.ok)
           throw new Error("Could not verify username availability. Please try again.");
-        
+
         const availabilityData = await availabilityRes.json();
         if (!availabilityData.available) {
-          const cleanName = name.trim().toLowerCase().replace(/[^a-z0-9_]/g, "") || "user";
-          const suggestions = [
-            `${cleanName}${Math.floor(Math.random() * 1000)}`,
-            `${cleanName}_${Math.floor(Math.random() * 100)}`,
-            `${cleanName}${new Date().getFullYear()}`,
-          ].filter(s => s.length >= 3 && s.length <= 24);
-          
-          throw new Error(`Username already in use. Try: ${suggestions.join(", ")}`);
+          setUsernameStatus("taken");
+          setUsernameSuggestions(availabilityData.suggestions || []);
+          throw new Error("This username is already used. Please choose another username.");
         }
+
         if (typeof window !== "undefined") {
           localStorage.setItem("daydraft_pending_name", name.trim());
           localStorage.setItem("daydraft_pending_username", normalizedUsername);
+          localStorage.setItem("daydraft_is_first_session", "true");
           if (avatarPreview) {
             localStorage.setItem("daydraft_pending_avatar", avatarPreview);
           }
@@ -215,8 +322,10 @@ export function AuthShell({
               { onConflict: "id" }
             );
           } catch {}
-          router.push("/dashboard");
+          navigating = true;
+          setIsNavigating(true);
           router.refresh();
+          window.location.assign("/dashboard");
           return;
         }
 
@@ -227,16 +336,18 @@ export function AuthShell({
       }
     } catch (caught) {
       let errorMessage = caught instanceof Error ? caught.message : "Authentication failed. Please try again.";
-      
+
       if (errorMessage.includes("Database error saving new user")) {
         errorMessage = "A database error occurred. This usually means the username or email is already taken.";
       } else if (errorMessage.toLowerCase().includes("rate limit") || errorMessage.includes("Error sending confirmation mail")) {
         errorMessage = "We couldn't send the confirmation email due to email provider limits. Please try again in a few minutes.";
       }
-      
+
       setError(errorMessage);
     } finally {
-      setBusy(false);
+      if (!navigating) {
+        setBusy(false);
+      }
     }
   };
 
@@ -258,6 +369,7 @@ export function AuthShell({
         if (typeof window !== "undefined") {
           const pendingName = localStorage.getItem("daydraft_pending_name") || "";
           const pendingUsername = localStorage.getItem("daydraft_pending_username") || "";
+          localStorage.setItem("daydraft_is_first_session", "true");
           if (pendingUsername) {
             try {
               await supabase.from("profiles").upsert(
@@ -273,8 +385,10 @@ export function AuthShell({
             } catch {}
           }
         }
-        router.push("/dashboard");
+        setIsNavigating(true);
         router.refresh();
+        window.location.assign("/dashboard");
+        return;
       } else {
         setMessage("Email verified successfully! You can now sign in.");
         setPendingVerificationEmail(null);
@@ -340,7 +454,7 @@ export function AuthShell({
             />
             <span className="text-lg font-semibold">Daydraft</span>
           </Link>
-          <div className="mt-24">
+          <div className="mt-20">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-300">
               A calmer day starts here
             </p>
@@ -352,6 +466,50 @@ export function AuthShell({
               plans.
             </p>
           </div>
+          {mode === "signup" && (
+            <div className="mt-8 p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-xs space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] uppercase tracking-wider font-semibold text-emerald-300">
+                  Live Profile Preview
+                </span>
+                {usernameStatus === "taken" && (
+                  <span className="text-[10px] font-semibold text-rose-300 bg-rose-950/60 px-1.5 py-0.5 rounded border border-rose-500/30">
+                    Taken
+                  </span>
+                )}
+                {usernameStatus === "available" && (
+                  <span className="text-[10px] font-semibold text-emerald-300 bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-500/30">
+                    Available
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-emerald-600 border border-emerald-400/40 flex items-center justify-center font-semibold text-white overflow-hidden shrink-0 shadow-xs">
+                  {avatarPreview ? (
+                    <img src={avatarPreview} alt="Avatar" className="w-full h-full object-cover" />
+                  ) : (
+                    name ? name.charAt(0).toUpperCase() : (username ? username.charAt(0).toUpperCase() : "U")
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold text-white truncate">
+                    {name || "Your Name"}
+                  </span>
+                  <span
+                    className={`block text-xs font-mono truncate transition-colors ${
+                      usernameStatus === "taken"
+                        ? "text-rose-300"
+                        : usernameStatus === "available"
+                          ? "text-emerald-300"
+                          : "text-white/60"
+                    }`}
+                  >
+                    @{username ? username.toLowerCase().replace(/[^a-z0-9._]/g, "") : "username"}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
         </aside>
         <section className="flex flex-col justify-center p-7 sm:p-12">
           {pendingVerificationEmail ? (
@@ -568,13 +726,103 @@ export function AuthShell({
                 </label>
                 <label className="block text-sm font-semibold text-[#15211c] dark:text-zinc-200">
                   Username
-                  <input
-                    required
-                    value={username}
-                    onChange={(event) => setUsername(event.target.value)}
-                    className="auth-input"
-                    placeholder="your.username"
-                  />
+                  <div className="relative">
+                    <input
+                      required
+                      value={username}
+                      onChange={(event) =>
+                        setUsername(
+                          event.target.value
+                            .toLowerCase()
+                            .replace(/[^a-z0-9._]/g, "")
+                        )
+                      }
+                      className={`auth-input font-mono pr-9 transition-all ${
+                        usernameStatus === "taken"
+                          ? "border-rose-400 dark:border-rose-500 focus:border-rose-500 focus:ring-rose-500/20 bg-rose-50/20 dark:bg-rose-950/10"
+                          : usernameStatus === "available"
+                            ? "border-emerald-500/80 dark:border-emerald-500 focus:border-emerald-500 focus:ring-emerald-500/20"
+                            : ""
+                      }`}
+                      placeholder="your.username"
+                    />
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                      {usernameStatus === "checking" && (
+                        <RefreshCw className="w-4 h-4 animate-spin text-zinc-400" />
+                      )}
+                      {usernameStatus === "available" && (
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                      )}
+                      {usernameStatus === "taken" && (
+                        <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400" />
+                      )}
+                    </div>
+                  </div>
+                  <div className="mt-2 space-y-1.5 px-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="text-[#66766d] dark:text-zinc-400">Public handle:</span>
+                        <span
+                          className={`font-mono font-medium px-2 py-0.5 rounded-md border truncate transition-colors ${
+                            usernameStatus === "taken"
+                              ? "text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 border-rose-200/60 dark:border-rose-800/60"
+                              : usernameStatus === "available"
+                                ? "text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200/60 dark:border-emerald-800/60"
+                                : "text-zinc-600 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800/60 border-zinc-200/60 dark:border-zinc-700/60"
+                          }`}
+                        >
+                          @{username || "username"}
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-[#89968d] dark:text-zinc-500 font-mono shrink-0">
+                        {username.length}/24
+                      </span>
+                    </div>
+
+                    {usernameStatus === "taken" && (
+                      <div className="rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200/60 dark:border-rose-900/40 p-3 text-xs text-rose-700 dark:text-rose-400 flex flex-col gap-2">
+                        <div className="flex items-center gap-1.5 font-medium">
+                          <AlertCircle className="w-4 h-4 shrink-0 text-rose-600 dark:text-rose-400" />
+                          <span>This username is already used.</span>
+                        </div>
+                        {usernameSuggestions.length > 0 && (
+                          <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                            <span className="text-zinc-600 dark:text-zinc-400">Available:</span>
+                            {usernameSuggestions.map((sug) => (
+                              <button
+                                key={sug}
+                                type="button"
+                                onClick={() => setUsername(sug)}
+                                className="font-mono text-[11px] font-medium px-2 py-0.5 rounded-md bg-white dark:bg-zinc-900 hover:bg-emerald-50 dark:hover:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-zinc-200 dark:border-zinc-800 hover:border-emerald-300 transition-all active:scale-95 cursor-pointer"
+                              >
+                                @{sug}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {usernameStatus === "available" && (
+                      <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+                        <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                        <span>Username is available</span>
+                      </div>
+                    )}
+
+                    {usernameStatus === "checking" && (
+                      <div className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+                        <RefreshCw className="w-3 h-3 animate-spin shrink-0" />
+                        <span>Checking availability...</span>
+                      </div>
+                    )}
+
+                    {usernameStatus === "invalid" && username.length > 0 && (
+                      <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">
+                        {usernameFeedback}
+                      </p>
+                    )}
+                  </div>
                 </label>
                 <label className="block text-sm font-semibold text-[#15211c] dark:text-zinc-200">
                   Email
@@ -668,18 +916,33 @@ export function AuthShell({
               </p>
             )}
             <button
-              disabled={busy}
-              className="w-full rounded-xl bg-[#15211c] dark:bg-emerald-600 hover:bg-[#26362e] dark:hover:bg-emerald-500 px-5 py-3.5 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:opacity-50 cursor-pointer"
+              disabled={
+                busy ||
+                isNavigating ||
+                (mode === "signup" &&
+                  (usernameStatus === "taken" || usernameStatus === "checking"))
+              }
+              className="w-full rounded-xl bg-[#15211c] dark:bg-emerald-600 hover:bg-[#26362e] dark:hover:bg-emerald-500 px-5 py-3.5 text-sm font-semibold text-white transition hover:-translate-y-0.5 active:scale-[0.99] disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
             >
-              {busy
-                ? "Working..."
-                : mode === "login"
-                  ? "Sign in"
-                  : mode === "signup"
-                    ? "Create account"
-                    : mode === "forgot"
-                      ? "Send reset link"
-                      : "Update password"}
+              {isNavigating ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin shrink-0" />
+                  <span>Signing in...</span>
+                </>
+              ) : busy ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin shrink-0" />
+                  <span>Working...</span>
+                </>
+              ) : mode === "login" ? (
+                "Sign in"
+              ) : mode === "signup" ? (
+                "Create account"
+              ) : mode === "forgot" ? (
+                "Send reset link"
+              ) : (
+                "Update password"
+              )}
             </button>
             {mode === "signup" && (
               <p className="text-center text-xs text-[#89968d] dark:text-zinc-500">

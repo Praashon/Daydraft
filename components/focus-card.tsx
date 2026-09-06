@@ -53,7 +53,7 @@ export function FocusCard({ focusTask, onComplete }: FocusCardProps) {
   };
 
   return (
-    <div className="relative overflow-hidden bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-6 subtle-card-shadow transition-all duration-300 hover:border-emerald-600 dark:border-emerald-500/30">
+    <div className="relative overflow-hidden bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-6 subtle-card-shadow transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md hover:border-emerald-600 dark:border-emerald-500/30">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold tracking-wider uppercase bg-emerald-600/10 text-emerald-600 dark:text-emerald-500 border border-emerald-600 dark:border-emerald-500/20">
@@ -98,10 +98,10 @@ export function FocusCard({ focusTask, onComplete }: FocusCardProps) {
           {!completed ? (
             <button
               onClick={handleToggleTimer}
-              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-medium transition-all shadow-sm ${
+              className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-medium transition-all shadow-sm hover:shadow-md hover:-translate-y-0.5 active:scale-[0.97] cursor-pointer ${
                 isFocusing
-                  ? "bg-zinc-900 dark:bg-zinc-100 text-white hover:bg-[#262626]"
-                  : "bg-emerald-600 text-white hover:bg-emerald-700 active:scale-[0.98]"
+                  ? "bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900 hover:bg-[#262626]"
+                  : "bg-emerald-600 text-white hover:bg-emerald-700"
               }`}
             >
               {isFocusing ? (
@@ -127,7 +127,7 @@ export function FocusCard({ focusTask, onComplete }: FocusCardProps) {
             <button
               onClick={handleResetTimer}
               title="Reset 25m focus timer"
-              className="p-2 rounded-lg text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:text-zinc-100 hover:bg-zinc-50 dark:bg-zinc-900 transition-colors"
+              className="p-2 rounded-lg text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:text-zinc-100 hover:bg-zinc-50 dark:bg-zinc-900 transition-all active:scale-90 cursor-pointer"
             >
               <RotateCcw className="w-3.5 h-3.5" />
             </button>
@@ -137,7 +137,7 @@ export function FocusCard({ focusTask, onComplete }: FocusCardProps) {
         {!completed && (
           <button
             onClick={handleComplete}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] text-zinc-500 dark:text-zinc-400 hover:text-emerald-600 hover:bg-emerald-50 transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] text-zinc-500 dark:text-zinc-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-all active:scale-95 cursor-pointer"
           >
             <CheckCircle2 className="w-4 h-4" />
             Mark done

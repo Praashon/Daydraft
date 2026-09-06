@@ -20,6 +20,9 @@ interface TaskListProps {
   onSelectTask?: (id: string, selected: boolean) => void;
   onSelectAllTasks?: (ids: string[], selected: boolean) => void;
   onClearSelection?: () => void;
+  hoveredPlanTaskId?: string | null;
+  onHoverTask?: (id: string | null) => void;
+  planTimesByTaskId?: Map<string, string>;
 }
 
 type FilterType = "all" | "pending" | "completed";
@@ -35,6 +38,9 @@ export function TaskList({
   onSelectTask,
   onSelectAllTasks,
   onClearSelection,
+  hoveredPlanTaskId,
+  onHoverTask,
+  planTimesByTaskId,
 }: TaskListProps) {
   const { handleBatchDeleteTasks: contextBatchDelete } = useAppContext();
   const [filter, setFilter] = useState<FilterType>("all");
@@ -131,7 +137,7 @@ export function TaskList({
   };
 
   return (
-    <div className="bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-6 subtle-card-shadow">
+    <div className="bg-white dark:bg-zinc-950 rounded-2xl border border-zinc-200 dark:border-zinc-800 p-6 subtle-card-shadow transition-all duration-200">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 mb-4 border-b border-zinc-200 dark:border-zinc-800/80">
         <div className="flex items-center gap-2.5">
           <h2 className="card-heading text-zinc-900 dark:text-zinc-100">Today&apos;s Tasks</h2>
@@ -145,7 +151,7 @@ export function TaskList({
             <button
               key={tab}
               onClick={() => setFilter(tab)}
-              className={`px-3 py-1 rounded-lg label-small capitalize transition-all ${
+              className={`px-3 py-1 rounded-lg label-small capitalize transition-all duration-150 active:scale-95 cursor-pointer ${
                 filter === tab
                   ? "bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 font-semibold shadow-xs"
                   : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
@@ -159,7 +165,7 @@ export function TaskList({
 
       {filteredTasks.length > 0 && (
         <div className="flex items-center justify-between gap-3 px-1 pb-3 mb-2 border-b border-zinc-100 dark:border-zinc-800/50">
-          <label className="inline-flex items-center gap-2 cursor-pointer select-none text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200">
+          <label className="inline-flex items-center gap-2 cursor-pointer select-none text-xs font-medium text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200 transition-colors">
             <input
               type="checkbox"
               checked={isAllSelected}
@@ -167,7 +173,7 @@ export function TaskList({
                 if (el) el.indeterminate = isSomeSelected;
               }}
               onChange={handleToggleSelectAll}
-              className="rounded border-zinc-300 dark:border-zinc-700 text-emerald-600 focus:ring-emerald-500 w-3.5 h-3.5"
+              className="rounded border-zinc-300 dark:border-zinc-700 text-emerald-600 focus:ring-emerald-500 w-3.5 h-3.5 cursor-pointer"
             />
             <span>
               {isAllSelected ? "Deselect All" : `Select All (${filteredTasks.length})`}
@@ -182,7 +188,7 @@ export function TaskList({
               <button
                 type="button"
                 onClick={handleDeleteSelected}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-medium transition-colors shadow-xs"
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 active:scale-95 text-white text-xs font-medium transition-all shadow-xs cursor-pointer"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>Delete ({selectedTaskIds.size})</span>
@@ -215,6 +221,10 @@ export function TaskList({
                 onTaskClick={onTaskClick}
                 isSelected={selectedTaskIds.has(task.id)}
                 onSelectChange={(selected) => handleSelectTask(task.id, selected)}
+                isLinkedHovered={hoveredPlanTaskId === task.id}
+                linkedPlanTime={planTimesByTaskId?.get(task.id)}
+                onMouseEnter={() => onHoverTask && onHoverTask(task.id)}
+                onMouseLeave={() => onHoverTask && onHoverTask(null)}
               />
             ))
           ) : (

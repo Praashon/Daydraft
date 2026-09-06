@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Task, Priority } from "@/types";
-import { Check, Calendar, Tag, Trash2, GripVertical } from "lucide-react";
+import { Check, Calendar, Tag, Trash2, GripVertical, Clock } from "lucide-react";
 import { motion } from "framer-motion";
 
 interface TaskCardProps {
@@ -16,6 +16,10 @@ interface TaskCardProps {
   isDragging?: boolean;
   isSelected?: boolean;
   onSelectChange?: (selected: boolean) => void;
+  isLinkedHovered?: boolean;
+  linkedPlanTime?: string;
+  onMouseEnter?: () => void;
+  onMouseLeave?: () => void;
 }
 
 const PRIORITY_STYLES: Record<Priority, { label: string; badge: string }> = {
@@ -44,6 +48,10 @@ export function TaskCard({
   isDragging,
   isSelected,
   onSelectChange,
+  isLinkedHovered,
+  linkedPlanTime,
+  onMouseEnter,
+  onMouseLeave,
 }: TaskCardProps) {
   const priorityInfo = PRIORITY_STYLES[task.priority] || PRIORITY_STYLES.medium;
 
@@ -57,22 +65,24 @@ export function TaskCard({
       draggable={isDraggable}
       {...(onDragStart
         ? {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             onDragStart: (e: any) => onDragStart(e, task),
           }
         : {})}
       {...(onDragEnd
         ? {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             onDragEnd: (e: any) => onDragEnd(e),
           }
         : {})}
-      className={`group relative flex items-center justify-between gap-3 p-3.5 sm:p-4 rounded-xl border transition-all duration-200 ${
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+      className={`group relative flex items-center justify-between gap-3 p-3.5 sm:p-4 rounded-xl border transition-all duration-200 hover:-translate-y-0.5 active:scale-[0.99] ${
         isSelected
-          ? "ring-2 ring-emerald-500/50 bg-emerald-50/20 dark:bg-emerald-950/20 border-emerald-500/40"
-          : task.completed
-            ? "bg-zinc-50 dark:bg-zinc-900/60 border-zinc-200 dark:border-zinc-800/80 opacity-70"
-            : "bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800"
+          ? "ring-2 ring-emerald-500/50 bg-emerald-50/20 dark:bg-emerald-950/20 border-emerald-500/40 shadow-xs"
+          : isLinkedHovered
+            ? "ring-2 ring-emerald-500/70 border-emerald-500 shadow-sm bg-emerald-50/30 dark:bg-emerald-950/30"
+            : task.completed
+              ? "bg-zinc-50 dark:bg-zinc-900/60 border-zinc-200 dark:border-zinc-800/80 opacity-70"
+              : "bg-white dark:bg-zinc-950 border-zinc-200 dark:border-zinc-800 hover:border-zinc-300 dark:hover:border-zinc-700 shadow-xs"
       } ${
         isDragging
           ? "opacity-40 scale-[0.98] border-dashed border-emerald-600 dark:border-emerald-500 shadow-sm cursor-grabbing"
@@ -93,7 +103,7 @@ export function TaskCard({
               onSelectChange(!isSelected);
             }}
             title={isSelected ? "Deselect task" : "Select task"}
-            className={`w-4 h-4 rounded flex items-center justify-center shrink-0 border transition-all duration-150 ${
+            className={`w-4 h-4 rounded flex items-center justify-center shrink-0 border transition-all duration-150 active:scale-90 ${
               isSelected
                 ? "bg-zinc-900 dark:bg-zinc-100 border-zinc-900 dark:border-zinc-100 text-white dark:text-zinc-900 shadow-xs"
                 : "bg-white dark:bg-zinc-950 border-zinc-300 dark:border-zinc-700 hover:border-zinc-500 opacity-60 group-hover:opacity-100"
@@ -121,9 +131,9 @@ export function TaskCard({
             e.stopPropagation();
             onToggle(task.id);
           }}
-          className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 border transition-all duration-200 ${
+          className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 border transition-all duration-200 active:scale-90 ${
             task.completed
-              ? "bg-emerald-600 border-emerald-600 dark:border-emerald-500 text-white"
+              ? "bg-emerald-600 border-emerald-600 dark:border-emerald-500 text-white shadow-xs"
               : "bg-white dark:bg-zinc-950 border-[#D4D4D4] hover:border-emerald-600 dark:border-emerald-500 text-transparent"
           }`}
         >
@@ -153,6 +163,15 @@ export function TaskCard({
           </div>
 
           <div className="flex items-center gap-2.5 mt-1 flex-wrap">
+            {linkedPlanTime && (
+              <span
+                title="Linked to Today's Schedule"
+                className="inline-flex items-center gap-1 text-[11px] font-mono font-medium text-emerald-700 dark:text-emerald-400 bg-emerald-100/60 dark:bg-emerald-950/50 px-1.5 py-0.5 rounded border border-emerald-200/60 dark:border-emerald-800/60 transition-colors"
+              >
+                <Clock className="w-3 h-3" />
+                {linkedPlanTime}
+              </span>
+            )}
             {task.deadline && (
               <span className="inline-flex items-center gap-1 label-small text-zinc-500 dark:text-zinc-400">
                 <Calendar className="w-3 h-3 text-zinc-500 dark:text-zinc-400/80" />
@@ -171,7 +190,7 @@ export function TaskCard({
 
       <div className="flex items-center gap-2 shrink-0">
         <span
-          className={`label-small px-2.5 py-0.5 rounded-full border font-medium ${priorityInfo.badge}`}
+          className={`label-small px-2.5 py-0.5 rounded-full border font-medium transition-all ${priorityInfo.badge}`}
         >
           {priorityInfo.label}
         </span>
@@ -185,7 +204,7 @@ export function TaskCard({
               onDelete(task.id);
             }}
             title="Delete task"
-            className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-zinc-500 dark:text-zinc-400 hover:text-rose-600 hover:bg-rose-50 transition-all"
+            className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-zinc-500 dark:text-zinc-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-all active:scale-90"
           >
             <Trash2 className="w-3.5 h-3.5" />
           </button>
