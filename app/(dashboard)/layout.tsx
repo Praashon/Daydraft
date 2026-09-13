@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { Sidebar } from "@/components/sidebar";
 import { Header } from "@/components/header";
 import { SettingsModal } from "@/components/settings-modal";
+import { OnboardingGuide } from "@/components/onboarding-guide";
 import { useAppContext } from "@/components/app-provider";
 import { usePathname, useRouter } from "next/navigation";
 import { ActiveView } from "@/types";
@@ -65,6 +66,8 @@ export default function DashboardLayout({
         onSaveUser={setUser}
         onResetData={handleResetData}
       />
+      
+      <OnboardingGuide />
     </div>
   );
 }

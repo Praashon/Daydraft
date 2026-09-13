@@ -38,10 +38,10 @@ begin
   insert into public.profiles (id, username, name, email, avatar_url)
   values (
     new.id,
-    lower(new.raw_user_meta_data ->> 'username'),
-    coalesce(new.raw_user_meta_data ->> 'name', ''),
+    coalesce(lower(new.raw_user_meta_data ->> 'username'), split_part(new.email, '@', 1) || '_' || substr(new.id::text, 1, 6)),
+    coalesce(new.raw_user_meta_data ->> 'name', coalesce(new.raw_user_meta_data ->> 'full_name', '')),
     lower(new.email),
-    nullif(new.raw_user_meta_data ->> 'avatar_url', '')
+    nullif(coalesce(new.raw_user_meta_data ->> 'avatar_url', new.raw_user_meta_data ->> 'picture'), '')
   );
   return new;
 end;

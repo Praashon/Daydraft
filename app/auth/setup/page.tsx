@@ -535,6 +535,18 @@ export default function GoogleAuthSetupPage() {
               )}
             </button>
 
+            <button
+              type="button"
+              onClick={() => {
+                document.cookie = "daydraft_setup_later=true; max-age=86400; path=/";
+                window.location.assign("/dashboard");
+              }}
+              disabled={busy}
+              className="w-full rounded-xl bg-transparent border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 px-4 py-2.5 text-xs sm:text-sm font-semibold text-zinc-700 dark:text-zinc-300 transition hover:-translate-y-0.5 active:scale-[0.99] cursor-pointer flex items-center justify-center gap-2 mt-2"
+            >
+              Set up later
+            </button>
+
             <div className="pt-2 flex items-center gap-2 text-[11px] text-zinc-500 dark:text-zinc-400">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
               <span>You can log in anytime with Google OR your username/password.</span>

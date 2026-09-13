@@ -38,7 +38,10 @@ export async function middleware(request: NextRequest) {
     );
 
     if (!isProfileComplete && !isSetupRoute && !isAuthRoute) {
-      return NextResponse.redirect(new URL("/auth/setup", request.url));
+      const skipSetup = request.cookies.get("daydraft_setup_later")?.value === "true";
+      if (!skipSetup) {
+        return NextResponse.redirect(new URL("/auth/setup", request.url));
+      }
     }
 
     if (isProfileComplete && (isAuthRoute || isSetupRoute)) {
