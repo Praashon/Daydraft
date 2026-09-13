@@ -68,7 +68,9 @@ export default function GoogleAuthSetupPage() {
         }
 
         // If already completed profile and password, go straight to dashboard
-        if (user.user_metadata?.profile_completed && user.user_metadata?.has_password) {
+        const providers = user.app_metadata?.providers || [];
+        const hasEmailProvider = providers.includes("email");
+        if (hasEmailProvider || (user.user_metadata?.profile_completed && user.user_metadata?.has_password)) {
           window.location.assign("/dashboard");
           return;
         }

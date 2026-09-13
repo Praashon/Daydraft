@@ -105,7 +105,9 @@ export async function GET(request: NextRequest) {
     if (!error) {
       const user = data?.user || (await supabase.auth.getUser()).data.user;
       if (user) {
-        const isProfileComplete = Boolean(
+        const providers = user.app_metadata?.providers || [];
+        const hasEmailProvider = providers.includes("email");
+        const isProfileComplete = hasEmailProvider || Boolean(
           user.user_metadata?.profile_completed &&
             user.user_metadata?.has_password
         );

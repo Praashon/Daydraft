@@ -27,13 +27,16 @@ export async function middleware(request: NextRequest) {
   const isAuthRoute = pathname === "/login" || pathname === "/signup";
   const isSetupRoute = pathname === "/auth/setup";
 
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { session } } = await supabase.auth.getSession();
+  const user = session?.user;
   if (!user && !isAuthRoute) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
   if (user) {
-    const isProfileComplete = Boolean(
+    const providers = user.app_metadata?.providers || [];
+    const hasEmailProvider = providers.includes("email");
+    const isProfileComplete = hasEmailProvider || Boolean(
       user.user_metadata?.profile_completed && user.user_metadata?.has_password
     );
 
