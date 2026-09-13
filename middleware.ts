@@ -25,14 +25,25 @@ export async function middleware(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
   const isAuthRoute = pathname === "/login" || pathname === "/signup";
+  const isSetupRoute = pathname === "/auth/setup";
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user && !isAuthRoute) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
-  if (user && isAuthRoute) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
+  if (user) {
+    const isProfileComplete = Boolean(
+      user.user_metadata?.profile_completed && user.user_metadata?.has_password
+    );
+
+    if (!isProfileComplete && !isSetupRoute && !isAuthRoute) {
+      return NextResponse.redirect(new URL("/auth/setup", request.url));
+    }
+
+    if (isProfileComplete && (isAuthRoute || isSetupRoute)) {
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
   }
 
   return response;
@@ -46,6 +57,7 @@ export const config = {
     "/notes/:path*",
     "/trash/:path*",
     "/profile/:path*",
+    "/auth/setup",
     "/login",
     "/signup",
   ],

@@ -19,6 +19,7 @@ export function MFASettings() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [hasPassword, setHasPassword] = useState(true);
 
   const [isEnrollingTotp, setIsEnrollingTotp] = useState(false);
   const [qrCode, setQrCode] = useState("");
@@ -37,6 +38,20 @@ export function MFASettings() {
         factor_type: "totp" | "passkey";
         friendly_name?: string;
       }[] = [];
+
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        const hasPwd = Boolean(
+          user?.user_metadata?.has_password ||
+            user?.app_metadata?.provider === "email" ||
+            user?.identities?.some(
+              (i: { provider: string }) => i.provider === "email",
+            ),
+        );
+        setHasPassword(hasPwd);
+      } catch {}
 
       try {
         const { data: mfaData } = await supabase.auth.mfa.listFactors();
@@ -83,6 +98,12 @@ export function MFASettings() {
   }, [fetchFactors]);
 
   const startTotpEnrollment = async () => {
+    if (!hasPassword) {
+      setError(
+        "You must set an account password before enabling multi-factor authentication.",
+      );
+      return;
+    }
     try {
       setError("");
       setSuccess("");
@@ -141,6 +162,12 @@ export function MFASettings() {
   };
 
   const startPasskeyEnrollment = async () => {
+    if (!hasPassword) {
+      setError(
+        "You must set an account password before enabling multi-factor authentication.",
+      );
+      return;
+    }
     try {
       setError("");
       setSuccess("");
@@ -286,34 +313,46 @@ export function MFASettings() {
             </div>
           )}
 
-          {!isEnrollingTotp && (
-            <div className="flex flex-col sm:flex-row gap-3 pt-2">
-              <button
-                onClick={startTotpEnrollment}
-                disabled={enrolling}
-                className="flex flex-1 items-center justify-center gap-2 px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 text-sm font-medium hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors disabled:opacity-50"
-              >
-                {enrolling && !isEnrollingTotp ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Plus className="w-4 h-4" />
-                )}
-                Add Authenticator App
-              </button>
-
-              <button
-                onClick={startPasskeyEnrollment}
-                disabled={enrolling}
-                className="flex flex-1 items-center justify-center gap-2 px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 text-sm font-medium hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors disabled:opacity-50"
-              >
-                {enrolling && !isEnrollingTotp ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Key className="w-4 h-4" />
-                )}
-                Add Passkey
-              </button>
+          {!hasPassword ? (
+            <div className="rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200/60 dark:border-amber-800/40 p-3.5 text-xs text-amber-800 dark:text-amber-300 space-y-1">
+              <div className="flex items-center gap-1.5 font-semibold">
+                <Shield className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                <span>Password required for Multi-Factor Authentication</span>
+              </div>
+              <p className="text-amber-700 dark:text-amber-400 leading-relaxed">
+                You currently do not have a password set on your account. Please set a password above under &ldquo;Account Security&rdquo; before enabling multi-factor authentication.
+              </p>
             </div>
+          ) : (
+            !isEnrollingTotp && (
+              <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                <button
+                  onClick={startTotpEnrollment}
+                  disabled={enrolling}
+                  className="flex flex-1 items-center justify-center gap-2 px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 text-sm font-medium hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors disabled:opacity-50"
+                >
+                  {enrolling && !isEnrollingTotp ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Plus className="w-4 h-4" />
+                  )}
+                  Add Authenticator App
+                </button>
+
+                <button
+                  onClick={startPasskeyEnrollment}
+                  disabled={enrolling}
+                  className="flex flex-1 items-center justify-center gap-2 px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 text-sm font-medium hover:bg-zinc-50 dark:hover:bg-zinc-900 transition-colors disabled:opacity-50"
+                >
+                  {enrolling && !isEnrollingTotp ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Key className="w-4 h-4" />
+                  )}
+                  Add Passkey
+                </button>
+              </div>
+            )
           )}
 
           {isEnrollingTotp && (

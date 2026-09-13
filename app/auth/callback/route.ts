@@ -11,11 +11,18 @@ async function ensureProfile(supabase: Awaited<ReturnType<typeof createClient>>)
 
     const { data: existing } = await supabase
       .from("profiles")
-      .select("id, name, username")
+      .select("id, name, username, avatar_url")
       .eq("id", user.id)
       .maybeSingle();
 
-    const metaName = (user.user_metadata?.name as string) || "";
+    const metaName =
+      (user.user_metadata?.name as string) ||
+      (user.user_metadata?.full_name as string) ||
+      "";
+    const metaAvatar =
+      (user.user_metadata?.avatar_url as string) ||
+      (user.user_metadata?.picture as string) ||
+      "";
     const metaUsername =
       (user.user_metadata?.username as string) ||
       (user.email
@@ -26,23 +33,36 @@ async function ensureProfile(supabase: Awaited<ReturnType<typeof createClient>>)
         : "user");
 
     if (!existing) {
+      let candidateUsername = metaUsername;
+      const { data: usernameTaken } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("username", candidateUsername)
+        .maybeSingle();
+
+      if (usernameTaken && usernameTaken.id !== user.id) {
+        candidateUsername = `${candidateUsername.slice(0, 18)}_${Math.floor(1000 + Math.random() * 9000)}`;
+      }
+
       await supabase.from("profiles").upsert(
         {
           id: user.id,
-          username: metaUsername,
+          username: candidateUsername,
           name: metaName,
           email: user.email || "",
-          avatar_url: (user.user_metadata?.avatar_url as string) || "",
+          avatar_url: metaAvatar,
         },
         { onConflict: "id" }
       );
     } else if (
       (!existing.name && metaName) ||
-      (!existing.username && metaUsername)
+      (!existing.username && metaUsername) ||
+      (!existing.avatar_url && metaAvatar)
     ) {
       const updates: Record<string, string> = {};
       if (!existing.name && metaName) updates.name = metaName;
       if (!existing.username && metaUsername) updates.username = metaUsername;
+      if (!existing.avatar_url && metaAvatar) updates.avatar_url = metaAvatar;
       if (Object.keys(updates).length > 0) {
         await supabase.from("profiles").update(updates).eq("id", user.id);
       }
@@ -54,6 +74,14 @@ async function ensureProfile(supabase: Awaited<ReturnType<typeof createClient>>)
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
+  const authError =
+    searchParams.get("error_description") || searchParams.get("error");
+  if (authError) {
+    return NextResponse.redirect(
+      new URL(`/login?error=${encodeURIComponent(authError)}`, request.url)
+    );
+  }
+
   const token_hash = searchParams.get("token_hash");
   const type = searchParams.get("type") as EmailOtpType | null;
   const code = searchParams.get("code");
@@ -73,8 +101,18 @@ export async function GET(request: NextRequest) {
   }
 
   if (code) {
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
+    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
+      const user = data?.user || (await supabase.auth.getUser()).data.user;
+      if (user) {
+        const isProfileComplete = Boolean(
+          user.user_metadata?.profile_completed &&
+            user.user_metadata?.has_password
+        );
+        if (!isProfileComplete) {
+          return NextResponse.redirect(new URL("/auth/setup", request.url));
+        }
+      }
       await ensureProfile(supabase);
       return NextResponse.redirect(new URL(next, request.url));
     }

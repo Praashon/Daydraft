@@ -432,45 +432,81 @@ export function AuthShell({
   };
 
 
+  const handleGoogleSignIn = async () => {
+    setError("");
+    setMessage("");
+    setBusy(true);
+    try {
+      const supabase = createClient();
+      const { error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
+        },
+      });
+      if (oauthError) throw oauthError;
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Failed to initialize Google Sign In. Please try again."
+      );
+      setBusy(false);
+    }
+  };
+
   const title =
     mode === "login"
       ? "Welcome back"
       : mode === "signup"
-        ? "Create your workspace"
+        ? "Create your account"
         : mode === "forgot"
-          ? "Recover your account"
+          ? "Recover account"
           : "Choose a new password";
+
+  const subtitle =
+    mode === "login"
+      ? "Sign in to continue to your Daydraft workspace."
+      : mode === "signup"
+        ? "Get organized with clarity and focus."
+        : mode === "forgot"
+          ? "Enter your email to receive a password reset link."
+          : "Enter your new secure password below.";
+
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#f5f6f2] dark:bg-zinc-950 px-6 py-8 text-[#15211c] dark:text-zinc-100 sm:py-12 transition-colors">
-      <div className="mx-auto grid max-h-[calc(100vh-4rem)] w-full max-w-5xl overflow-y-auto rounded-[30px] border border-[#d6e0d7] dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-[0_25px_80px_rgba(21,33,28,0.1)] dark:shadow-none lg:grid-cols-[0.85fr_1.15fr] transition-colors">
-        <aside className="bg-[#15211c] dark:bg-zinc-950/80 p-8 text-white sm:p-12 border-b lg:border-b-0 lg:border-r border-zinc-800/40">
-          <Link href="/" className="flex items-center gap-3">
-            <Image
-              src="/logo.jpg"
-              alt="Daydraft logo"
-              width={36}
-              height={36}
-              className="rounded-xl"
-            />
-            <span className="text-lg font-semibold">Daydraft</span>
-          </Link>
-          <div className="mt-20">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-300">
-              A calmer day starts here
-            </p>
-            <h1 className="mt-4 text-4xl font-semibold leading-tight tracking-[-0.04em]">
-              Make room for the work that matters.
-            </h1>
-            <p className="mt-5 text-sm leading-6 text-white/60">
-              Secure account access for your tasks, notes, priorities, and daily
-              plans.
-            </p>
+    <main className="flex min-h-screen items-center justify-center bg-[#f5f6f2] dark:bg-zinc-950 px-4 py-4 sm:px-6 sm:py-8 text-[#15211c] dark:text-zinc-100 transition-colors">
+      <div className="mx-auto grid w-full max-w-4xl rounded-2xl sm:rounded-3xl border border-[#d6e0d7] dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-xl dark:shadow-none lg:grid-cols-[0.8fr_1.2fr] overflow-hidden transition-colors">
+        <aside className="bg-[#15211c] dark:bg-zinc-950/90 p-6 sm:p-8 lg:p-10 text-white flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-zinc-800/40">
+          <div>
+            <Link href="/" className="inline-flex items-center gap-2.5">
+              <Image
+                src="/logo.jpg"
+                alt="Daydraft logo"
+                width={32}
+                height={32}
+                className="rounded-lg shadow-xs"
+              />
+              <span className="text-base font-semibold tracking-tight">Daydraft</span>
+            </Link>
+
+            <div className="mt-6 lg:mt-10">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-emerald-400">
+                A calmer day starts here
+              </p>
+              <h1 className="mt-2 text-2xl sm:text-3xl font-semibold leading-tight tracking-[-0.03em]">
+                Make room for the work that matters.
+              </h1>
+              <p className="mt-2.5 text-xs sm:text-sm leading-relaxed text-white/60">
+                Quietly transform mental chaos into structured tasks, schedules, and actionable focus.
+              </p>
+            </div>
           </div>
-          {mode === "signup" && (
-            <div className="mt-8 p-4 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-xs space-y-2">
+
+          {mode === "signup" ? (
+            <div className="mt-6 p-3 rounded-xl bg-white/5 border border-white/10 backdrop-blur-xs space-y-1.5">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] uppercase tracking-wider font-semibold text-emerald-300">
-                  Live Profile Preview
+                <span className="text-[10px] uppercase tracking-wider font-semibold text-emerald-300">
+                  Profile Preview
                 </span>
                 {usernameStatus === "taken" && (
                   <span className="text-[10px] font-semibold text-rose-300 bg-rose-950/60 px-1.5 py-0.5 rounded border border-rose-500/30">
@@ -483,8 +519,8 @@ export function AuthShell({
                   </span>
                 )}
               </div>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-emerald-600 border border-emerald-400/40 flex items-center justify-center font-semibold text-white overflow-hidden shrink-0 shadow-xs">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-full bg-emerald-600 border border-emerald-400/40 flex items-center justify-center font-semibold text-white overflow-hidden shrink-0 shadow-xs text-xs">
                   {avatarPreview ? (
                     <img src={avatarPreview} alt="Avatar" className="w-full h-full object-cover" />
                   ) : (
@@ -492,11 +528,11 @@ export function AuthShell({
                   )}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <span className="block text-sm font-semibold text-white truncate">
+                  <span className="block text-xs font-semibold text-white truncate">
                     {name || "Your Name"}
                   </span>
                   <span
-                    className={`block text-xs font-mono truncate transition-colors ${
+                    className={`block text-[11px] font-mono truncate transition-colors ${
                       usernameStatus === "taken"
                         ? "text-rose-300"
                         : usernameStatus === "available"
@@ -509,9 +545,14 @@ export function AuthShell({
                 </div>
               </div>
             </div>
+          ) : (
+            <div className="mt-6 hidden lg:block p-3 rounded-xl bg-white/5 border border-white/10 text-[11px] text-white/60 leading-relaxed">
+              Your tasks, notes, and habits are end-to-end encrypted and safely stored.
+            </div>
           )}
         </aside>
-        <section className="flex flex-col justify-center p-7 sm:p-12">
+
+        <section className="flex flex-col justify-center p-6 sm:p-8 lg:p-9">
           {pendingVerificationEmail ? (
             <div>
               <div className="flex items-center justify-between">
@@ -522,39 +563,39 @@ export function AuthShell({
                     setError("");
                     setMessage("");
                   }}
-                  className="inline-flex w-fit items-center gap-1.5 text-sm font-semibold text-emerald-700 dark:text-emerald-400 hover:underline cursor-pointer"
+                  className="inline-flex w-fit items-center gap-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400 hover:underline cursor-pointer"
                 >
-                  <ArrowLeft className="h-4 w-4" />
-                  Change email / Back
+                  <ArrowLeft className="h-3.5 w-3.5" />
+                  Back / Change email
                 </button>
                 <ThemeToggle />
               </div>
 
-              <div className="mt-7 flex items-center gap-3">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-800/50">
-                  <Mail className="h-6 w-6" />
+              <div className="mt-5 flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-800/50">
+                  <Mail className="h-5 w-5" />
                 </div>
                 <div>
-                  <h2 className="text-2xl font-semibold tracking-[-0.04em] text-[#15211c] dark:text-zinc-100">
+                  <h2 className="text-xl font-semibold tracking-[-0.03em] text-[#15211c] dark:text-zinc-100">
                     Verify your email
                   </h2>
                   <p className="text-xs text-[#66766d] dark:text-zinc-400">
-                    Almost there! Confirm your Daydraft account.
+                    Enter the code sent to your inbox to finish.
                   </p>
                 </div>
               </div>
 
-              <p className="mt-4 text-sm leading-relaxed text-[#66766d] dark:text-zinc-400">
-                We sent a confirmation link and 6-digit code to{" "}
+              <p className="mt-3 text-xs leading-relaxed text-[#66766d] dark:text-zinc-400">
+                Code sent to{" "}
                 <span className="font-semibold text-[#15211c] dark:text-zinc-200">
                   {pendingVerificationEmail}
                 </span>
-                . Click the link in your email, or enter the code below:
+                . Enter the 6-digit confirmation code:
               </p>
 
-              <form onSubmit={handleVerifyOtp} className="mt-6 space-y-4">
-                <label className="block text-sm font-semibold text-[#15211c] dark:text-zinc-200">
-                  6-Digit Confirmation Code
+              <form onSubmit={handleVerifyOtp} className="mt-4 space-y-3">
+                <label className="block text-xs font-semibold text-[#15211c] dark:text-zinc-200">
+                  6-Digit Code
                   <input
                     type="text"
                     inputMode="numeric"
@@ -565,20 +606,20 @@ export function AuthShell({
                     onChange={(e) =>
                       setOtpCode(e.target.value.replace(/\D/g, ""))
                     }
-                    className="auth-input text-center text-2xl font-mono tracking-[0.35em] font-semibold"
+                    className="auth-input text-center text-xl font-mono tracking-[0.35em] font-semibold !py-2 !mt-1"
                     required
                   />
                 </label>
 
                 {error && (
-                  <p className="rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200/50 dark:border-red-900/50 p-3 text-sm text-red-700 dark:text-red-400">
+                  <p className="rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200/50 dark:border-red-900/50 p-2.5 text-xs text-red-700 dark:text-red-400">
                     {error}
                   </p>
                 )}
 
                 {resendMessage && (
-                  <p className="rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/50 dark:border-emerald-900/50 p-3 text-sm text-emerald-700 dark:text-emerald-400 flex items-center gap-2">
-                    <CheckCircle2 className="h-4 w-4 shrink-0" />
+                  <p className="rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/50 dark:border-emerald-900/50 p-2.5 text-xs text-emerald-700 dark:text-emerald-400 flex items-center gap-1.5">
+                    <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
                     <span>{resendMessage}</span>
                   </p>
                 )}
@@ -586,23 +627,23 @@ export function AuthShell({
                 <button
                   type="submit"
                   disabled={otpBusy || otpCode.length < 6}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#15211c] dark:bg-emerald-600 hover:bg-[#26362e] dark:hover:bg-emerald-500 px-5 py-3.5 text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:opacity-50 cursor-pointer"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#15211c] dark:bg-emerald-600 hover:bg-[#26362e] dark:hover:bg-emerald-500 px-4 py-2.5 text-xs sm:text-sm font-semibold text-white transition hover:-translate-y-0.5 disabled:opacity-50 cursor-pointer"
                 >
                   {otpBusy ? (
                     <>
-                      <RefreshCw className="h-4 w-4 animate-spin" />
+                      <RefreshCw className="h-3.5 w-3.5 animate-spin" />
                       Verifying...
                     </>
                   ) : (
                     <>
                       Confirm Code
-                      <ArrowRight className="h-4 w-4" />
+                      <ArrowRight className="h-3.5 w-3.5" />
                     </>
                   )}
                 </button>
               </form>
 
-              <div className="mt-6 flex items-center justify-between border-t border-[#e2eae3] dark:border-zinc-800 pt-4 text-sm text-[#66766d] dark:text-zinc-400">
+              <div className="mt-4 flex items-center justify-between border-t border-[#e2eae3] dark:border-zinc-800 pt-3 text-xs text-[#66766d] dark:text-zinc-400">
                 <span>Didn&apos;t get the code?</span>
                 <button
                   type="button"
@@ -614,12 +655,12 @@ export function AuthShell({
                 </button>
               </div>
 
-              <div className="mt-4 text-center">
+              <div className="mt-3 text-center">
                 <Link
                   href="/login"
                   className="text-xs font-medium text-[#66766d] dark:text-zinc-400 hover:text-[#15211c] dark:hover:text-zinc-200 hover:underline"
                 >
-                  Already verified via email link? Sign in &rarr;
+                  Already verified? Sign in &rarr;
                 </Link>
               </div>
             </div>
@@ -628,361 +669,462 @@ export function AuthShell({
               <div className="flex items-center justify-between">
                 <Link
                   href="/"
-                  className="inline-flex w-fit items-center gap-1.5 text-sm font-semibold text-emerald-700 dark:text-emerald-400 hover:underline"
+                  className="inline-flex w-fit items-center gap-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400 hover:underline"
                 >
-                  <ArrowLeft className="h-4 w-4" />
+                  <ArrowLeft className="h-3.5 w-3.5" />
                   Back to Daydraft
                 </Link>
                 <ThemeToggle />
               </div>
-              <h2 className="mt-7 text-3xl font-semibold tracking-[-0.04em] text-[#15211c] dark:text-zinc-100">
-                {title}
-              </h2>
-              <p className="mt-2 text-sm text-[#66766d] dark:text-zinc-400">
-                {mode === "signup"
-                  ? "Your email must be verified before your first sign in."
-                  : "Your account stays protected by Supabase Auth."}
-              </p>
-              <form onSubmit={submit} className="mt-8 space-y-4">
-            {mode === "signup" && (
-              <>
-                <label className="block text-sm font-semibold text-[#15211c] dark:text-zinc-200">
-                  Profile picture
-                  <input
-                    ref={avatarInputRef}
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp"
-                    className="sr-only"
-                    onChange={(event) => {
-                      handleAvatarFile(event.target.files?.[0]);
-                      event.target.value = "";
-                    }}
-                  />
-                  {avatarPreview ? (
-                    <div className="mt-2 flex items-center justify-between gap-3 rounded-xl border border-emerald-300 dark:border-emerald-800/80 bg-emerald-50/50 dark:bg-emerald-950/20 p-3">
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-emerald-500 shadow-sm shrink-0">
-                          <img
-                            src={avatarPreview}
-                            alt="Avatar preview"
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                        <span className="text-xs font-medium text-emerald-800 dark:text-emerald-300 truncate">
-                          Photo cropped & ready
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        {rawAvatarSrc && (
-                          <button
-                            type="button"
-                            onClick={() => setIsCropModalOpen(true)}
-                            className="px-2.5 py-1 text-xs font-medium rounded-lg bg-emerald-600/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-600/20 transition-colors cursor-pointer"
-                          >
-                            Recrop
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => avatarInputRef.current?.click()}
-                          className="px-2.5 py-1 text-xs font-medium rounded-lg bg-emerald-600/10 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-600/20 transition-colors cursor-pointer"
-                        >
-                          Change
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setAvatarPreview("");
-                            setRawAvatarSrc("");
-                          }}
-                          className="px-2.5 py-1 text-xs font-medium rounded-lg text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors cursor-pointer"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
+
+              <div className="mt-3">
+                <h2 className="text-xl sm:text-2xl font-semibold tracking-[-0.03em] text-[#15211c] dark:text-zinc-100">
+                  {title}
+                </h2>
+                <p className="mt-0.5 text-xs text-[#66766d] dark:text-zinc-400">
+                  {subtitle}
+                </p>
+              </div>
+
+              {(mode === "login" || mode === "signup") && (
+                <>
+                  <div className="mt-3.5">
                     <button
                       type="button"
-                      onClick={() => avatarInputRef.current?.click()}
-                      className="mt-2 flex w-full items-center gap-3 rounded-xl border border-dashed border-emerald-300 dark:border-emerald-800/80 bg-emerald-50/50 dark:bg-emerald-950/20 p-3 text-left text-sm font-normal text-[#66766d] dark:text-zinc-400 hover:border-emerald-600 dark:hover:border-emerald-500 cursor-pointer"
+                      onClick={handleGoogleSignIn}
+                      disabled={busy || isNavigating}
+                      className="w-full flex items-center justify-center gap-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800/80 hover:bg-zinc-50 dark:hover:bg-zinc-800 px-4 py-2.5 text-xs sm:text-sm font-medium text-zinc-800 dark:text-zinc-200 transition shadow-2xs hover:shadow-xs cursor-pointer disabled:opacity-50"
                     >
-                      <span className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/60 text-emerald-700 dark:text-emerald-300 font-medium text-lg">
-                        +
+                      <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                        <path
+                          fill="#4285F4"
+                          d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
+                        />
+                        <path
+                          fill="#34A853"
+                          d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.26v3.15C3.25 21.37 7.34 24 12 24z"
+                        />
+                        <path
+                          fill="#FBBC05"
+                          d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.26C.46 8.16 0 9.97 0 12s.46 3.84 1.26 5.42l4.02-3.15z"
+                        />
+                        <path
+                          fill="#EA4335"
+                          d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.25 2.63 1.26 6.58l4.02 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
+                        />
+                      </svg>
+                      <span>
+                        {mode === "login" ? "Sign in with Google" : "Continue with Google"}
                       </span>
-                      <span>Choose a profile image</span>
                     </button>
-                  )}
-                </label>
-                <label className="block text-sm font-semibold text-[#15211c] dark:text-zinc-200">
-                  Name
-                  <input
-                    required
-                    value={name}
-                    onChange={(event) => setName(event.target.value)}
-                    className="auth-input"
-                    placeholder="Your name"
-                  />
-                </label>
-                <label className="block text-sm font-semibold text-[#15211c] dark:text-zinc-200">
-                  Username
-                  <div className="relative">
-                    <input
-                      required
-                      value={username}
-                      onChange={(event) =>
-                        setUsername(
-                          event.target.value
-                            .toLowerCase()
-                            .replace(/[^a-z0-9._]/g, "")
-                        )
-                      }
-                      className={`auth-input font-mono pr-9 transition-all ${
-                        usernameStatus === "taken"
-                          ? "border-rose-400 dark:border-rose-500 focus:border-rose-500 focus:ring-rose-500/20 bg-rose-50/20 dark:bg-rose-950/10"
-                          : usernameStatus === "available"
-                            ? "border-emerald-500/80 dark:border-emerald-500 focus:border-emerald-500 focus:ring-emerald-500/20"
-                            : ""
-                      }`}
-                      placeholder="your.username"
-                    />
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                      {usernameStatus === "checking" && (
-                        <RefreshCw className="w-4 h-4 animate-spin text-zinc-400" />
-                      )}
-                      {usernameStatus === "available" && (
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-                      )}
-                      {usernameStatus === "taken" && (
-                        <AlertCircle className="w-4 h-4 text-rose-600 dark:text-rose-400" />
-                      )}
-                    </div>
                   </div>
-                  <div className="mt-2 space-y-1.5 px-1">
-                    <div className="flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="text-[#66766d] dark:text-zinc-400">Public handle:</span>
-                        <span
-                          className={`font-mono font-medium px-2 py-0.5 rounded-md border truncate transition-colors ${
-                            usernameStatus === "taken"
-                              ? "text-rose-700 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/40 border-rose-200/60 dark:border-rose-800/60"
-                              : usernameStatus === "available"
-                                ? "text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 border-emerald-200/60 dark:border-emerald-800/60"
-                                : "text-zinc-600 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800/60 border-zinc-200/60 dark:border-zinc-700/60"
-                          }`}
+
+                  <div className="relative my-3 flex items-center justify-center">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t border-zinc-200 dark:border-zinc-800" />
+                    </div>
+                    <span className="relative bg-white dark:bg-zinc-900 px-2.5 text-[10px] text-zinc-400 dark:text-zinc-500 uppercase tracking-wider font-medium">
+                      or with email
+                    </span>
+                  </div>
+                </>
+              )}
+
+              <form onSubmit={submit} className="space-y-2.5">
+                {mode === "signup" && (
+                  <>
+                    <div className="flex items-center justify-between rounded-xl border border-dashed border-emerald-300 dark:border-emerald-800/80 bg-emerald-50/40 dark:bg-emerald-950/20 px-3 py-1.5">
+                      <input
+                        ref={avatarInputRef}
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        className="sr-only"
+                        onChange={(event) => {
+                          handleAvatarFile(event.target.files?.[0]);
+                          event.target.value = "";
+                        }}
+                      />
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div
+                          onClick={() => avatarInputRef.current?.click()}
+                          className="w-8 h-8 rounded-full overflow-hidden border border-emerald-500/80 bg-white dark:bg-zinc-800 flex items-center justify-center text-xs font-semibold text-emerald-700 dark:text-emerald-400 shrink-0 cursor-pointer shadow-2xs"
                         >
-                          @{username || "username"}
+                          {avatarPreview ? (
+                            <img
+                              src={avatarPreview}
+                              alt="Avatar"
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            "+"
+                          )}
+                        </div>
+                        <span className="text-xs text-zinc-600 dark:text-zinc-400 truncate">
+                          {avatarPreview ? "Avatar uploaded" : "Profile photo (optional)"}
                         </span>
                       </div>
-                      <span className="text-[11px] text-[#89968d] dark:text-zinc-500 font-mono shrink-0">
-                        {username.length}/24
-                      </span>
+                      <div className="flex items-center gap-1.5 shrink-0 text-xs">
+                        {avatarPreview ? (
+                          <>
+                            {rawAvatarSrc && (
+                              <button
+                                type="button"
+                                onClick={() => setIsCropModalOpen(true)}
+                                className="text-[11px] font-medium text-emerald-700 dark:text-emerald-300 hover:underline cursor-pointer"
+                              >
+                                Crop
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => avatarInputRef.current?.click()}
+                              className="text-[11px] font-medium text-emerald-700 dark:text-emerald-300 hover:underline cursor-pointer"
+                            >
+                              Change
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setAvatarPreview("");
+                                setRawAvatarSrc("");
+                              }}
+                              className="text-[11px] font-medium text-red-600 dark:text-red-400 hover:underline cursor-pointer"
+                            >
+                              Remove
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => avatarInputRef.current?.click()}
+                            className="text-xs font-semibold text-emerald-700 dark:text-emerald-400 hover:underline cursor-pointer"
+                          >
+                            Choose image
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <div>
+                        <label className="block text-xs font-semibold text-[#15211c] dark:text-zinc-200">
+                          Name
+                        </label>
+                        <input
+                          required
+                          value={name}
+                          onChange={(e) => setName(e.target.value)}
+                          className="auth-input !mt-1 !py-2 !px-3 text-xs sm:text-sm"
+                          placeholder="Your name"
+                        />
+                      </div>
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <label className="block text-xs font-semibold text-[#15211c] dark:text-zinc-200">
+                            Username
+                          </label>
+                          <span className="text-[10px] text-[#89968d] dark:text-zinc-500 font-mono">
+                            {username.length}/24
+                          </span>
+                        </div>
+                        <div className="relative">
+                          <input
+                            required
+                            value={username}
+                            onChange={(e) =>
+                              setUsername(
+                                e.target.value
+                                  .toLowerCase()
+                                  .replace(/[^a-z0-9._]/g, "")
+                              )
+                            }
+                            className={`auth-input !mt-1 !py-2 !px-3 pr-8 text-xs sm:text-sm font-mono ${
+                              usernameStatus === "taken"
+                                ? "border-rose-400 dark:border-rose-500 bg-rose-50/20 dark:bg-rose-950/10"
+                                : usernameStatus === "available"
+                                  ? "border-emerald-500/80 dark:border-emerald-500"
+                                  : ""
+                            }`}
+                            placeholder="username"
+                          />
+                          <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
+                            {usernameStatus === "checking" && (
+                              <RefreshCw className="w-3.5 h-3.5 animate-spin text-zinc-400" />
+                            )}
+                            {usernameStatus === "available" && (
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                            )}
+                            {usernameStatus === "taken" && (
+                              <AlertCircle className="w-3.5 h-3.5 text-rose-600 dark:text-rose-400" />
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     </div>
 
                     {usernameStatus === "taken" && (
-                      <div className="rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200/60 dark:border-rose-900/40 p-3 text-xs text-rose-700 dark:text-rose-400 flex flex-col gap-2">
-                        <div className="flex items-center gap-1.5 font-medium">
-                          <AlertCircle className="w-4 h-4 shrink-0 text-rose-600 dark:text-rose-400" />
-                          <span>This username is already used.</span>
-                        </div>
+                      <div className="rounded-lg bg-rose-50 dark:bg-rose-950/30 border border-rose-200/60 dark:border-rose-900/40 px-2.5 py-1.5 text-[11px] text-rose-700 dark:text-rose-400 flex items-center gap-1.5 flex-wrap">
+                        <span className="font-medium">Username taken.</span>
                         {usernameSuggestions.length > 0 && (
-                          <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
-                            <span className="text-zinc-600 dark:text-zinc-400">Available:</span>
+                          <>
+                            <span>Try:</span>
                             {usernameSuggestions.map((sug) => (
                               <button
                                 key={sug}
                                 type="button"
                                 onClick={() => setUsername(sug)}
-                                className="font-mono text-[11px] font-medium px-2 py-0.5 rounded-md bg-white dark:bg-zinc-900 hover:bg-emerald-50 dark:hover:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-zinc-200 dark:border-zinc-800 hover:border-emerald-300 transition-all active:scale-95 cursor-pointer"
+                                className="font-mono underline font-medium hover:text-rose-800 dark:hover:text-rose-300 cursor-pointer"
                               >
                                 @{sug}
                               </button>
                             ))}
-                          </div>
+                          </>
                         )}
                       </div>
                     )}
 
-                    {usernameStatus === "available" && (
-                      <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400 font-medium">
-                        <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                        <span>Username is available</span>
-                      </div>
-                    )}
-
-                    {usernameStatus === "checking" && (
-                      <div className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
-                        <RefreshCw className="w-3 h-3 animate-spin shrink-0" />
-                        <span>Checking availability...</span>
-                      </div>
-                    )}
-
                     {usernameStatus === "invalid" && username.length > 0 && (
-                      <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">
+                      <p className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
                         {usernameFeedback}
                       </p>
                     )}
-                  </div>
-                </label>
-                <label className="block text-sm font-semibold text-[#15211c] dark:text-zinc-200">
-                  Email
-                  <input
-                    required
-                    type="email"
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                    className="auth-input"
-                    placeholder="you@example.com"
-                  />
-                </label>
-              </>
-            )}
-            {mode === "login" && (
-              <label className="block text-sm font-semibold text-[#15211c] dark:text-zinc-200">
-                Username or email
-                <input
-                  required
-                  value={emailOrUsername}
-                  onChange={(event) => setEmailOrUsername(event.target.value)}
-                  className="auth-input"
-                  placeholder="you or you@example.com"
-                />
-              </label>
-            )}
-            {mode === "forgot" && (
-              <label className="block text-sm font-semibold text-[#15211c] dark:text-zinc-200">
-                Email
-                <input
-                  required
-                  type="email"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  className="auth-input"
-                  placeholder="you@example.com"
-                />
-              </label>
-            )}
-            {(mode === "login" || mode === "signup" || mode === "reset") && (
-              <>
-                <label className="block text-sm font-semibold text-[#15211c] dark:text-zinc-200">
-                  Password
-                  <input
-                    required
-                    type="password"
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                    className="auth-input"
-                    placeholder="Your secure password"
-                  />
-                </label>
-                {mode === "signup" && (
-                  <div className="flex gap-1.5">
-                    {Array.from({ length: 5 }).map((_, index) => (
-                      <span
-                        key={index}
-                        className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${index < score ? "bg-emerald-600" : "bg-zinc-200 dark:bg-zinc-800"}`}
+
+                    <div>
+                      <label className="block text-xs font-semibold text-[#15211c] dark:text-zinc-200">
+                        Email
+                      </label>
+                      <input
+                        required
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="auth-input !mt-1 !py-2 !px-3 text-xs sm:text-sm"
+                        placeholder="you@example.com"
                       />
-                    ))}
-                  </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      <div>
+                        <label className="block text-xs font-semibold text-[#15211c] dark:text-zinc-200">
+                          Password
+                        </label>
+                        <input
+                          required
+                          type="password"
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          className="auth-input !mt-1 !py-2 !px-3 text-xs sm:text-sm"
+                          placeholder="Min 9 chars"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-[#15211c] dark:text-zinc-200">
+                          Confirm password
+                        </label>
+                        <input
+                          required
+                          type="password"
+                          value={confirmation}
+                          onChange={(e) => setConfirmation(e.target.value)}
+                          className="auth-input !mt-1 !py-2 !px-3 text-xs sm:text-sm"
+                          placeholder="Repeat password"
+                        />
+                      </div>
+                    </div>
+
+                    {password && (
+                      <div className="space-y-1">
+                        <div className="flex gap-1">
+                          {Array.from({ length: 5 }).map((_, index) => (
+                            <span
+                              key={index}
+                              className={`h-1 flex-1 rounded-full transition-all duration-300 ${
+                                index < score ? "bg-emerald-500" : "bg-zinc-200 dark:bg-zinc-800"
+                              }`}
+                            />
+                          ))}
+                        </div>
+                        {!passwordsMatch && (
+                          <p className="text-[11px] text-rose-500">
+                            Passwords do not match.
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </>
                 )}
-                {(mode === "signup" || mode === "reset") && (
-                  <label className="block text-sm font-semibold text-[#15211c] dark:text-zinc-200">
-                    Confirm password
+
+                {mode === "login" && (
+                  <>
+                    <div>
+                      <label className="block text-xs font-semibold text-[#15211c] dark:text-zinc-200">
+                        Username or email
+                      </label>
+                      <input
+                        required
+                        value={emailOrUsername}
+                        onChange={(e) => setEmailOrUsername(e.target.value)}
+                        className="auth-input !mt-1 !py-2.5 !px-3.5 text-xs sm:text-sm"
+                        placeholder="you or you@example.com"
+                      />
+                    </div>
+                    <div>
+                      <div className="flex items-center justify-between">
+                        <label className="block text-xs font-semibold text-[#15211c] dark:text-zinc-200">
+                          Password
+                        </label>
+                        <Link
+                          href="/forgot-password"
+                          className="text-xs text-emerald-700 dark:text-emerald-400 hover:underline"
+                        >
+                          Forgot password?
+                        </Link>
+                      </div>
+                      <input
+                        required
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="auth-input !mt-1 !py-2.5 !px-3.5 text-xs sm:text-sm"
+                        placeholder="Your password"
+                      />
+                    </div>
+                  </>
+                )}
+
+                {mode === "forgot" && (
+                  <div>
+                    <label className="block text-xs font-semibold text-[#15211c] dark:text-zinc-200">
+                      Account email
+                    </label>
                     <input
                       required
-                      type="password"
-                      value={confirmation}
-                      onChange={(event) => setConfirmation(event.target.value)}
-                      className="auth-input"
-                      placeholder="Repeat your password"
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="auth-input !mt-1 !py-2.5 !px-3.5 text-xs sm:text-sm"
+                      placeholder="you@example.com"
                     />
+                  </div>
+                )}
+
+                {mode === "reset" && (
+                  <div className="space-y-2.5">
+                    <div>
+                      <label className="block text-xs font-semibold text-[#15211c] dark:text-zinc-200">
+                        New password
+                      </label>
+                      <input
+                        required
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="auth-input !mt-1 !py-2 !px-3 text-xs sm:text-sm"
+                        placeholder="New secure password"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-[#15211c] dark:text-zinc-200">
+                        Confirm new password
+                      </label>
+                      <input
+                        required
+                        type="password"
+                        value={confirmation}
+                        onChange={(e) => setConfirmation(e.target.value)}
+                        className="auth-input !mt-1 !py-2 !px-3 text-xs sm:text-sm"
+                        placeholder="Repeat new password"
+                      />
+                    </div>
                     {!passwordsMatch && (
-                      <p className="mt-1 text-xs text-red-600 dark:text-red-400">
+                      <p className="text-[11px] text-rose-500">
                         Passwords do not match.
                       </p>
                     )}
-                  </label>
+                  </div>
                 )}
-              </>
-            )}
-            {error && (
-              <p className="rounded-xl bg-red-50 dark:bg-red-950/30 border border-red-200/50 dark:border-red-900/50 p-3 text-sm text-red-700 dark:text-red-400">
-                {error}
-              </p>
-            )}
-            {message && (
-              <p className="rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/50 dark:border-emerald-900/50 p-3 text-sm text-emerald-700 dark:text-emerald-400">
-                {message}
-              </p>
-            )}
-            <button
-              disabled={
-                busy ||
-                isNavigating ||
-                (mode === "signup" &&
-                  (usernameStatus === "taken" || usernameStatus === "checking"))
-              }
-              className="w-full rounded-xl bg-[#15211c] dark:bg-emerald-600 hover:bg-[#26362e] dark:hover:bg-emerald-500 px-5 py-3.5 text-sm font-semibold text-white transition hover:-translate-y-0.5 active:scale-[0.99] disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2"
-            >
-              {isNavigating ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin shrink-0" />
-                  <span>Signing in...</span>
-                </>
-              ) : busy ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin shrink-0" />
-                  <span>Working...</span>
-                </>
-              ) : mode === "login" ? (
-                "Sign in"
-              ) : mode === "signup" ? (
-                "Create account"
-              ) : mode === "forgot" ? (
-                "Send reset link"
-              ) : (
-                "Update password"
-              )}
-            </button>
-            {mode === "signup" && (
-              <p className="text-center text-xs text-[#89968d] dark:text-zinc-500">
-                By creating an account, you agree to our{" "}
-                <Link href="/terms" className="underline text-zinc-600 dark:text-zinc-400 hover:text-[#15211c] dark:hover:text-zinc-200">
-                  Terms of Service
-                </Link>{" "}
-                and{" "}
-                <Link href="/privacy" className="underline text-zinc-600 dark:text-zinc-400 hover:text-[#15211c] dark:hover:text-zinc-200">
-                  Privacy Policy
-                </Link>
-                .
-              </p>
-            )}
-          </form>
-          <div className="mt-6 flex flex-wrap gap-x-4 gap-y-2 text-sm text-[#66766d] dark:text-zinc-400">
-            {mode === "login" && (
-              <>
-                <Link href="/signup" className="font-semibold text-emerald-700 dark:text-emerald-400 hover:underline">
-                  Create account
-                </Link>
-                <Link
-                  href="/forgot-password"
-                  className="font-semibold text-emerald-700 dark:text-emerald-400 hover:underline"
+
+                {error && (
+                  <p className="rounded-lg bg-red-50 dark:bg-red-950/30 border border-red-200/50 dark:border-red-900/50 p-2.5 text-xs text-red-700 dark:text-red-400">
+                    {error}
+                  </p>
+                )}
+
+                {message && (
+                  <p className="rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200/50 dark:border-emerald-900/50 p-2.5 text-xs text-emerald-700 dark:text-emerald-400">
+                    {message}
+                  </p>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={
+                    busy ||
+                    isNavigating ||
+                    (mode === "signup" &&
+                      (usernameStatus === "taken" || usernameStatus === "checking"))
+                  }
+                  className="w-full rounded-xl bg-[#15211c] dark:bg-emerald-600 hover:bg-[#26362e] dark:hover:bg-emerald-500 px-4 py-2.5 text-xs sm:text-sm font-semibold text-white transition hover:-translate-y-0.5 active:scale-[0.99] disabled:opacity-50 cursor-pointer flex items-center justify-center gap-2 mt-1 shadow-xs hover:shadow"
                 >
-                  Forgot password?
-                </Link>
-              </>
-            )}
-            {mode === "signup" && (
-              <Link href="/login" className="font-semibold text-emerald-700 dark:text-emerald-400 hover:underline">
-                Already have an account?
-              </Link>
-            )}
-            {(mode === "forgot" || mode === "reset") && (
-              <Link href="/login" className="font-semibold text-emerald-700 dark:text-emerald-400 hover:underline">
-                Back to sign in
-              </Link>
-            )}
-          </div>
+                  {isNavigating ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin shrink-0" />
+                      <span>Signing in...</span>
+                    </>
+                  ) : busy ? (
+                    <>
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin shrink-0" />
+                      <span>Working...</span>
+                    </>
+                  ) : mode === "login" ? (
+                    "Sign in with Email"
+                  ) : mode === "signup" ? (
+                    "Create account"
+                  ) : mode === "forgot" ? (
+                    "Send reset link"
+                  ) : (
+                    "Update password"
+                  )}
+                </button>
+
+                {mode === "signup" && (
+                  <p className="text-center text-[10px] text-[#89968d] dark:text-zinc-500 pt-0.5">
+                    By registering, you accept our{" "}
+                    <Link href="/terms" className="underline text-zinc-600 dark:text-zinc-400 hover:text-[#15211c] dark:hover:text-zinc-200">
+                      Terms
+                    </Link>{" "}
+                    and{" "}
+                    <Link href="/privacy" className="underline text-zinc-600 dark:text-zinc-400 hover:text-[#15211c] dark:hover:text-zinc-200">
+                      Privacy Policy
+                    </Link>
+                    .
+                  </p>
+                )}
+              </form>
+
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-zinc-100 dark:border-zinc-800/80 pt-3 text-xs text-[#66766d] dark:text-zinc-400">
+                {mode === "login" && (
+                  <>
+                    <span>Don&apos;t have an account?</span>
+                    <Link href="/signup" className="font-semibold text-emerald-700 dark:text-emerald-400 hover:underline">
+                      Create account &rarr;
+                    </Link>
+                  </>
+                )}
+                {mode === "signup" && (
+                  <>
+                    <span>Already have an account?</span>
+                    <Link href="/login" className="font-semibold text-emerald-700 dark:text-emerald-400 hover:underline">
+                      Sign in &rarr;
+                    </Link>
+                  </>
+                )}
+                {(mode === "forgot" || mode === "reset") && (
+                  <Link href="/login" className="font-semibold text-emerald-700 dark:text-emerald-400 hover:underline">
+                    &larr; Back to sign in
+                  </Link>
+                )}
+              </div>
             </>
           )}
         </section>

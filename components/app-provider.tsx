@@ -419,12 +419,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
         let profile = rawProfile;
         const metaName =
-          (authUser.user_metadata?.name as string) || pendingName || "";
+          (authUser.user_metadata?.name as string) ||
+          (authUser.user_metadata?.full_name as string) ||
+          pendingName ||
+          "";
         const metaUsername =
           (authUser.user_metadata?.username as string) || pendingUsername || "";
+        const metaAvatar =
+          (authUser.user_metadata?.avatar_url as string) ||
+          (authUser.user_metadata?.picture as string) ||
+          "";
 
         if (!profile) {
-          const fallbackUsername =
+          let fallbackUsername =
             metaUsername ||
             (authUser.email
               ? authUser.email
@@ -432,6 +439,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                   .toLowerCase()
                   .replace(/[^a-z0-9._]/g, "")
               : "user");
+
+          const { data: takenCheck } = await supabase
+            .from("profiles")
+            .select("id")
+            .eq("username", fallbackUsername)
+            .maybeSingle();
+
+          if (takenCheck && takenCheck.id !== authUser.id) {
+            fallbackUsername = `${fallbackUsername.slice(0, 18)}_${Math.floor(1000 + Math.random() * 9000)}`;
+          }
+
           const { data: createdProfile } = await supabase
             .from("profiles")
             .upsert(
@@ -440,8 +458,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 username: fallbackUsername,
                 name: metaName,
                 email: authUser.email || "",
-                avatar_url:
-                  (authUser.user_metadata?.avatar_url as string) || "",
+                avatar_url: metaAvatar,
               },
               { onConflict: "id" }
             )
@@ -451,12 +468,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           if (createdProfile) profile = createdProfile;
         } else if (
           (!profile.name && metaName) ||
-          (!profile.username && metaUsername)
+          (!profile.username && metaUsername) ||
+          (!profile.avatar_url && metaAvatar)
         ) {
           const updatePayload: Record<string, string> = {};
           if (!profile.name && metaName) updatePayload.name = metaName;
           if (!profile.username && metaUsername)
             updatePayload.username = metaUsername;
+          if (!profile.avatar_url && metaAvatar)
+            updatePayload.avatar_url = metaAvatar;
           if (Object.keys(updatePayload).length > 0) {
             await supabase
               .from("profiles")
