@@ -1,6 +1,8 @@
 import { GoogleGenAI } from "@google/genai";
 import { AIOrganizeResponse, Task, Priority, DailyPlanItem, FocusTask } from "@/types";
 import { generateId } from "./utils";
+import { OrganizeError, validateOrganizeContent } from "./organize-response";
+import { RequestTimeoutError, withDeadline } from "./request-deadline";
 
 const SYSTEM_PROMPT = `You are the quiet, intelligent cognitive engine of Daydraft, a premium productivity system.
 Your job is to transform raw, unfiltered, chaotic human thoughts and "brain dumps" into an impeccably organized, calm, and actionable structure.
@@ -196,8 +198,9 @@ export function generateLocalFallback(input: string): AIOrganizeResponse {
 }
 
 function sanitizeOrganizeResponse(parsed: any): AIOrganizeResponse {
+  validateOrganizeContent(parsed as unknown);
   const cleanText = (value: unknown, fallback = "") =>
-    typeof value === "string" ? value.replace(/\u2014/g, " - ") : fallback;
+    typeof value === "string" ? value.replace(/\u2014/g, " - ").trim() || fallback : fallback;
 
   const rawTasks = Array.isArray(parsed.tasks) ? parsed.tasks : [];
   const taskIdMap = new Map<string, string>();
@@ -267,7 +270,7 @@ function sanitizeOrganizeResponse(parsed: any): AIOrganizeResponse {
 
   return {
     tasks: sanitizedTasks,
-    focusTask: focusTask as any,
+    focusTask: focusTask || { title: "", reason: "" },
     dailyPlan: sanitizedDailyPlan,
     insight: cleanText(
       parsed.insight,
@@ -280,59 +283,77 @@ function sanitizeOrganizeResponse(parsed: any): AIOrganizeResponse {
 export async function organizeWithOpenRouter(
   text: string,
   apiKey: string,
-  model: string = "openrouter/free"
+  model: string = "openrouter/free",
+  signal?: AbortSignal,
 ): Promise<AIOrganizeResponse> {
-  const selectedModel = model || "openrouter/free";
+  return withDeadline(async (requestSignal) => {
+    const selectedModel = model || "openrouter/free";
 
-  const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-      "HTTP-Referer": "https://daydraft.net",
-      "X-Title": "Daydraft",
-    },
-    body: JSON.stringify({
-      model: selectedModel,
-      messages: [
-        {
-          role: "system",
-          content: SYSTEM_PROMPT,
-        },
-        {
-          role: "user",
-          content: `Here is the user's brain dump:\n"${text}"`,
-        },
-      ],
-      temperature: 0.2,
-    }),
-  });
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      signal: requestSignal,
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://daydraft.net",
+        "X-Title": "Daydraft",
+      },
+      body: JSON.stringify({
+        model: selectedModel,
+        messages: [
+          {
+            role: "system",
+            content: SYSTEM_PROMPT,
+          },
+          {
+            role: "user",
+            content: `Here is the user's brain dump:\n"${text}"`,
+          },
+        ],
+        temperature: 0.2,
+      }),
+    });
 
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(
-      errorData.error?.message || `OpenRouter API returned status ${response.status}`
-    );
+    if (!response.ok) {
+      throw providerError(response.status);
+    }
+
+    const data = await response.json();
+    const rawContent = data.choices?.[0]?.message?.content || "";
+    if (typeof rawContent !== "string" || data.choices?.[0]?.finish_reason === "length") {
+      throw new OrganizeError("The AI response was incomplete. Try a shorter brain dump or another model in Settings.");
+    }
+
+    const cleanedContent = rawContent.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+
+    const jsonMatch = cleanedContent.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new OrganizeError("The AI returned an empty or incomplete result. Please retry or choose another model in Settings.");
+    }
+
+    const parsed = JSON.parse(jsonMatch[0]);
+    return sanitizeOrganizeResponse(parsed);
+  }, 25_000, signal);
+}
+
+function providerError(status: number): OrganizeError {
+  if (status === 401 || status === 403) {
+    return new OrganizeError("The AI provider rejected the API key. Check the selected provider's key in Settings.", 502, "INVALID_API_KEY");
   }
-
-  const data = await response.json();
-  const rawContent = data.choices?.[0]?.message?.content || "";
-
-  const cleanedContent = rawContent.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
-
-  const jsonMatch = cleanedContent.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) {
-    throw new Error("No JSON structure found in OpenRouter AI response");
+  if (status === 429) {
+    return new OrganizeError("The AI provider is rate-limiting requests. Wait a moment and retry, or choose another model in Settings.", 429, "RATE_LIMITED");
   }
-
-  const parsed = JSON.parse(jsonMatch[0]);
-  return sanitizeOrganizeResponse(parsed);
+  if (status === 402) {
+    return new OrganizeError("The AI provider requires more credits. Check your provider account or choose an available free model.", 502, "PROVIDER_CREDITS");
+  }
+  return new OrganizeError("The AI provider could not complete your request. Please retry or choose another model in Settings.", 502, "PROVIDER_UNAVAILABLE");
 }
 
 export interface OrganizeOptions {
   provider?: "openrouter" | "gemini";
   apiKey?: string;
   model?: string;
+  signal?: AbortSignal;
 }
 
 export async function organizeThoughts(
@@ -346,23 +367,17 @@ export async function organizeThoughts(
 
   const provider = options.provider || "openrouter";
 
-  if (provider === "openrouter") {
-    const openRouterKey = options.apiKey || process.env.OPENROUTER_API_KEY;
-    if (openRouterKey) {
-      try {
-        return await organizeWithOpenRouter(text, openRouterKey, options.model);
-      } catch (error) {
-        console.warn("OpenRouter API call failed; falling back to local NLP engine:", error);
-        return generateLocalFallback(text);
-      }
-    }
+  const apiKey = options.apiKey || (provider === "gemini" ? process.env.GEMINI_API_KEY : process.env.OPENROUTER_API_KEY);
+  if (!apiKey) {
+    throw new OrganizeError("Add an API key for the selected AI provider in Settings to organize thoughts and answer questions.", 503, "MISSING_API_KEY");
   }
 
-  if (provider === "gemini") {
-    const geminiKey = options.apiKey || process.env.GEMINI_API_KEY;
-    if (geminiKey) {
-      try {
-        const client = new GoogleGenAI({ apiKey: geminiKey });
+  try {
+    if (provider === "openrouter") {
+      return await organizeWithOpenRouter(text, apiKey, options.model, options.signal);
+    }
+    return await withDeadline(async (signal) => {
+        const client = new GoogleGenAI({ apiKey });
         const response = await client.models.generateContent({
           model: options.model || "gemini-2.5-flash",
           contents: [
@@ -376,6 +391,8 @@ export async function organizeThoughts(
             },
           ],
           config: {
+            abortSignal: signal,
+            httpOptions: { timeout: 25_000, retryOptions: { attempts: 1 } },
             temperature: 0.2,
             responseMimeType: "application/json",
           },
@@ -384,19 +401,20 @@ export async function organizeThoughts(
         const responseText = response.text || "";
         const jsonMatch = responseText.match(/\{[\s\S]*\}/);
         if (!jsonMatch) {
-          throw new Error("No JSON structure found in Gemini AI response");
+          throw new OrganizeError("The AI returned an empty or incomplete result. Please retry or choose another model in Settings.");
         }
 
         const parsed = JSON.parse(jsonMatch[0]);
         return sanitizeOrganizeResponse(parsed);
-      } catch (error) {
-        console.warn("Gemini API call failed; falling back to local NLP engine:", error);
-        return generateLocalFallback(text);
-      }
+    }, 25_000, options.signal);
+  } catch (error) {
+    if (options.signal?.aborted || error instanceof RequestTimeoutError || error instanceof OrganizeError) throw error;
+    if (error instanceof SyntaxError) {
+      throw new OrganizeError("The AI returned an unreadable result. Please retry or choose another model in Settings.");
     }
+    const status = error && typeof error === "object" && "status" in error ? Number(error.status) : 502;
+    throw providerError(status);
   }
-
-  return generateLocalFallback(text);
 }
 
 export interface RebalancePlanOptions {

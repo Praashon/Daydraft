@@ -178,12 +178,13 @@ body {
 .auth-input {
   display: block;
   width: 100%;
+  min-height: 2.75rem;
   margin-top: 0.5rem;
   border: 1px solid #dfe7df;
   border-radius: 0.75rem;
   background: #fbfcfa;
   padding: 0.75rem 1rem;
-  font-size: 0.875rem;
+  font-size: 1rem;
   font-weight: 400;
   outline: none;
   transition:

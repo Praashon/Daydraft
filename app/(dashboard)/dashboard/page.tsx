@@ -1,6 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { requestOrganize, type OrganizeInput } from "@/lib/organize-client";
 import { BrainDump } from "@/components/brain-dump";
 import { ProcessingState } from "@/components/processing-state";
 import { FocusCard } from "@/components/focus-card";
@@ -10,7 +12,7 @@ import { AIInsight } from "@/components/ai-insight";
 import { StatsCard } from "@/components/stats-card";
 import { NotesList } from "@/components/notes-list";
 import { CoachingSidebar } from "@/components/coaching-sidebar";
-import { AIOrganizeResponse, Task, DailyPlanItem } from "@/types";
+import { Task, DailyPlanItem } from "@/types";
 import { useAppContext } from "@/components/app-provider";
 import { AnimatePresence, motion } from "framer-motion";
 import { Lightbulb, Link as LinkIcon, Unlink, Sparkles } from "lucide-react";
@@ -128,6 +130,7 @@ function getMatchingTaskForPlan(
 export default function DashboardPage() {
   const {
     user,
+    setIsSettingsOpen,
     tasks,
     setTasks,
     focusTask,
@@ -148,6 +151,15 @@ export default function DashboardPage() {
   } = useAppContext();
 
   const [isProcessing, setIsProcessing] = useState(false);
+  const [organizeError, setOrganizeError] = useState("");
+  const [organizeNotice, setOrganizeNotice] = useState("");
+  const organizeRequest = useRef<AbortController | null>(null);
+  const lastOrganizeInput = useRef<OrganizeInput | null>(null);
+  useEffect(() => () => {
+    const request = organizeRequest.current;
+    organizeRequest.current = null;
+    request?.abort();
+  }, []);
   const [isAutoUpdating, setIsAutoUpdating] = useState(false);
   const [isInsightDismissed, setIsInsightDismissed] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -496,59 +508,54 @@ export default function DashboardPage() {
     remaining: tasks.length - completedCount,
   };
 
-  const handleOrganizeThoughts = async (
-    text: string,
-    overrideProvider?: "openrouter" | "gemini",
-  ) => {
+  const runOrganize = async (input: OrganizeInput) => {
+    if (organizeRequest.current) return;
+    const controller = new AbortController();
+    organizeRequest.current = controller;
+    lastOrganizeInput.current = input;
     setIsProcessing(true);
-    const activeProvider = overrideProvider || user.aiProvider || "openrouter";
-    const model =
-      activeProvider === "openrouter" ? user.selectedModel : "gemini-2.5-flash";
-
+    setOrganizeError("");
+    setOrganizeNotice("");
     try {
-      const response = await fetch("/api/organize", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          text,
-          provider: activeProvider,
-          model,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to process thoughts");
+      const data = await requestOrganize(input, controller.signal);
+      if (organizeRequest.current !== controller || controller.signal.aborted) return;
+      // Keep existing tasks when a brain dump only requests answers/notes.
+      if (data.tasks.length > 0) {
+        setTasks(data.tasks);
+        setFocusTask(data.focusTask);
+        setDailyPlan(data.dailyPlan);
       }
-
-      const data: AIOrganizeResponse = await response.json();
-
-      setTimeout(() => {
-        if (data.tasks && data.tasks.length > 0) {
-          setTasks(data.tasks);
-        }
-        if (data.focusTask) {
-          setFocusTask(data.focusTask);
-        }
-        if (data.dailyPlan && data.dailyPlan.length > 0) {
-          setDailyPlan(data.dailyPlan);
-        }
-        if (data.insight) {
-          setInsight(data.insight);
-          setIsInsightDismissed(false);
-        }
-        if (data.notes && data.notes.length > 0) {
-          const newNotes = data.notes.map((n) => ({
-            ...n,
-            dismissedFromDashboard: false,
-          }));
-          setNotes((prev) => [...prev, ...newNotes]);
-        }
+      setInsight(data.insight);
+      setIsInsightDismissed(false);
+      if (data.notes?.length) {
+        setNotes((prev) => [...prev, ...data.notes!.map((n) => ({ ...n, dismissedFromDashboard: false }))]);
+      }
+      setOrganizeNotice(data.notes?.length
+        ? "Your thoughts are organized. Answers are in Notes below."
+        : "Your thoughts are organized. Your tasks are ready below.");
+    } catch (error) {
+      if (organizeRequest.current === controller && !controller.signal.aborted) {
+        setOrganizeError(error instanceof Error ? error.message : "Could not organize your thoughts. Please try again.");
+      }
+    } finally {
+      if (organizeRequest.current === controller) {
+        organizeRequest.current = null;
         setIsProcessing(false);
-      }, 2600);
-    } catch (err) {
-      console.error("Error organizing brain dump:", err);
-      setIsProcessing(false);
+      }
     }
+  };
+
+  const cancelOrganize = () => {
+    const request = organizeRequest.current;
+    organizeRequest.current = null;
+    request?.abort();
+    setIsProcessing(false);
+    setOrganizeNotice("Organizing cancelled. Your text is still here.");
+  };
+
+  const handleOrganizeThoughts = (text: string, overrideProvider?: "openrouter" | "gemini") => {
+    const provider = overrideProvider || user.aiProvider || "openrouter";
+    void runOrganize({ text, provider, model: provider === "openrouter" ? user.selectedModel : "gemini-2.5-flash" });
   };
 
   return (
@@ -566,10 +573,23 @@ export default function DashboardPage() {
           />
         </section>
 
+        {organizeError && (
+          <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 p-5 text-red-900 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200">
+            <p className="font-semibold">Could not organize your thoughts</p>
+            <p className="mt-1 text-sm leading-relaxed">{organizeError}</p>
+            <div className="mt-3 flex flex-wrap gap-3">
+              <button type="button" onClick={() => { if (lastOrganizeInput.current) void runOrganize(lastOrganizeInput.current); }} className="min-h-11 rounded-lg border border-current px-4 py-2 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-offset-2">Try again</button>
+              <button type="button" onClick={() => setIsSettingsOpen(true)} className="min-h-11 rounded-lg px-3 py-2 text-sm underline underline-offset-4 focus-visible:outline-2">AI settings</button>
+              <Link href="/login" className="inline-flex min-h-11 items-center rounded-lg px-3 py-2 text-sm underline underline-offset-4 focus-visible:outline-2">Sign in</Link>
+            </div>
+          </div>
+        )}
+        {organizeNotice && <p role="status" className="text-sm text-zinc-700 dark:text-zinc-300">{organizeNotice}</p>}
+
         <AnimatePresence>
           {isProcessing && (
             <section aria-label="AI Processing State">
-              <ProcessingState />
+              <ProcessingState onCancel={cancelOrganize} />
             </section>
           )}
         </AnimatePresence>

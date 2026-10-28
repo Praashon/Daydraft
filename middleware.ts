@@ -10,6 +10,12 @@ export async function middleware(request: NextRequest) {
 
   if (!url || !key) return response;
 
+  const pathname = request.nextUrl.pathname;
+  // Public forms render without creating an auth client or waiting for refresh.
+  // AuthShell handles existing sessions after the form is visible.
+  if (pathname === "/login" || pathname === "/signup") return response;
+  const isSetupRoute = pathname === "/auth/setup";
+
   const supabase = createServerClient(url, key, {
     cookies: {
       getAll() {
@@ -23,13 +29,9 @@ export async function middleware(request: NextRequest) {
     },
   });
 
-  const pathname = request.nextUrl.pathname;
-  const isAuthRoute = pathname === "/login" || pathname === "/signup";
-  const isSetupRoute = pathname === "/auth/setup";
-
   const { data: { session } } = await supabase.auth.getSession();
   const user = session?.user;
-  if (!user && !isAuthRoute) {
+  if (!user) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
 
@@ -40,14 +42,14 @@ export async function middleware(request: NextRequest) {
       user.user_metadata?.profile_completed && user.user_metadata?.has_password
     );
 
-    if (!isProfileComplete && !isSetupRoute && !isAuthRoute) {
+    if (!isProfileComplete && !isSetupRoute) {
       const skipSetup = request.cookies.get("daydraft_setup_later")?.value === "true";
       if (!skipSetup) {
         return NextResponse.redirect(new URL("/auth/setup", request.url));
       }
     }
 
-    if (isProfileComplete && (isAuthRoute || isSetupRoute)) {
+    if (isProfileComplete && isSetupRoute) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
   }

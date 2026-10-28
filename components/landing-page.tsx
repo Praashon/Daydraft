@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
@@ -16,7 +17,6 @@ if (typeof window !== "undefined") {
 }
 
 interface LandingPageProps {
-  onLaunchApp: () => void;
   onRunDemoOrganize: (text: string) => void;
 }
 
@@ -33,7 +33,6 @@ const demoSchedule = [
 ];
 
 export function LandingPage({
-  onLaunchApp,
   onRunDemoOrganize,
 }: LandingPageProps) {
   const pageRef = useRef<HTMLDivElement>(null);
@@ -47,9 +46,13 @@ export function LandingPage({
 
   useEffect(() => {
     const checkAuth = async () => {
-      const supabase = createClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      setIsLoggedIn(!!session);
+      try {
+        const supabase = createClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        setIsLoggedIn(!!session);
+      } catch {
+        setIsLoggedIn(false);
+      }
     };
     checkAuth();
   }, []);
@@ -65,11 +68,6 @@ export function LandingPage({
           "-=0.2",
         )
         .from(".landing-copy", { opacity: 0, y: 18, duration: 0.6 }, "-=0.35")
-        .from(
-          ".landing-actions",
-          { opacity: 0, y: 14, duration: 0.5 },
-          "-=0.25",
-        )
         .from(
           ".landing-hero-visual",
           { opacity: 0, y: 40, scale: 0.97, duration: 0.9 },
@@ -243,8 +241,9 @@ export function LandingPage({
             </button>
 
             {isLoggedIn ? (
-              <div
-                onClick={onLaunchApp}
+              <Link
+                href="/dashboard"
+                aria-label="Open dashboard"
                 className="cursor-pointer relative w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center font-medium text-xs overflow-hidden shrink-0 hover:ring-2 ring-emerald-500/50 transition-all"
               >
                 {user?.avatarUrl ? (
@@ -254,14 +253,15 @@ export function LandingPage({
                 ) : (
                   ""
                 )}
-              </div>
+              </Link>
             ) : (
-              <button
-                onClick={onLaunchApp}
-                className="flex items-center px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[13px] font-medium shadow-xs transition-all active:scale-[0.98]"
+              <Link
+                href="/login"
+                prefetch={true}
+                className="flex min-h-11 items-center px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-[13px] font-medium shadow-xs transition-all active:scale-[0.98]"
               >
-                Launch App
-              </button>
+                Sign in
+              </Link>
             )}
           </div>
         </div>
@@ -290,13 +290,14 @@ export function LandingPage({
                   that can actually breathe.
                 </p>
                 <div className="landing-actions mt-9 flex flex-col items-start gap-3 sm:flex-row sm:items-center">
-                  <button
-                    onClick={onLaunchApp}
+                  <Link
+                    href={isLoggedIn ? "/dashboard" : "/signup"}
+                    prefetch={true}
                     className="inline-flex items-center gap-2 rounded-xl bg-[#15211c] dark:bg-emerald-600 hover:bg-[#26362e] dark:hover:bg-emerald-500 px-5 py-3.5 text-sm font-semibold text-white transition-all hover:-translate-y-0.5 shadow-sm"
                   >
-                    Begin with a brain dump
+                    {isLoggedIn ? "Open dashboard" : "Create account"}
                     <ArrowRight className="h-4 w-4" />
-                  </button>
+                  </Link>
                   <a
                     href="#story"
                     className="px-2 py-2 text-sm font-semibold text-[#607069] dark:text-zinc-400 hover:text-[#15211c] dark:hover:text-zinc-100 transition-colors"
@@ -768,12 +769,13 @@ export function LandingPage({
                 </p>
               </div>
             </div>
-            <button
-              onClick={onLaunchApp}
+            <Link
+              href={isLoggedIn ? "/dashboard" : "/signup"}
+              prefetch={true}
               className="story-reveal mt-12 inline-flex items-center gap-2 rounded-xl bg-[#15211c] dark:bg-emerald-600 hover:bg-[#26362e] dark:hover:bg-emerald-500 px-6 py-3.5 text-sm font-semibold text-white transition-all hover:-translate-y-0.5 shadow-sm"
             >
-              Open your workspace <ArrowRight className="h-4 w-4" />
-            </button>
+              {isLoggedIn ? "Open dashboard" : "Create account"} <ArrowRight className="h-4 w-4" />
+            </Link>
           </div>
         </section>
       </main>

@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
-export async function createClient() {
+export async function createClient(signal?: AbortSignal) {
   const cookieStore = await cookies();
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key =
@@ -13,6 +13,10 @@ export async function createClient() {
   }
 
   return createServerClient(url, key, {
+    ...(signal ? { global: { fetch: (input: RequestInfo | URL, init?: RequestInit) => fetch(input, {
+      ...init,
+      signal: init?.signal ? AbortSignal.any([signal, init.signal]) : signal,
+    }) } } : {}),
     cookies: {
       getAll() {
         return cookieStore.getAll();

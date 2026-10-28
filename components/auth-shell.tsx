@@ -94,7 +94,7 @@ export function AuthShell({
             setIsNavigating(true);
             window.location.assign("/dashboard");
           }
-        });
+        }).catch(() => {});
       } catch {}
     }
   }, [mode]);
@@ -814,7 +814,7 @@ export function AuthShell({
                           required
                           value={name}
                           onChange={(e) => setName(e.target.value)}
-                          className="auth-input !mt-1 !py-2 !px-3 text-xs sm:text-sm"
+                          className="auth-input !mt-1 !py-2 !px-3 text-base"
                           placeholder="Your name"
                         />
                       </div>
@@ -898,7 +898,7 @@ export function AuthShell({
                         type="email"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        className="auth-input !mt-1 !py-2 !px-3 text-xs sm:text-sm"
+                        className="auth-input !mt-1 !py-2 !px-3 text-base"
                         placeholder="you@example.com"
                       />
                     </div>
@@ -913,7 +913,7 @@ export function AuthShell({
                           type="password"
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
-                          className="auth-input !mt-1 !py-2 !px-3 text-xs sm:text-sm"
+                          className="auth-input !mt-1 !py-2 !px-3 text-base"
                           placeholder="Min 9 chars"
                         />
                       </div>
@@ -926,7 +926,7 @@ export function AuthShell({
                           type="password"
                           value={confirmation}
                           onChange={(e) => setConfirmation(e.target.value)}
-                          className="auth-input !mt-1 !py-2 !px-3 text-xs sm:text-sm"
+                          className="auth-input !mt-1 !py-2 !px-3 text-base"
                           placeholder="Repeat password"
                         />
                       </div>
@@ -964,7 +964,7 @@ export function AuthShell({
                         required
                         value={emailOrUsername}
                         onChange={(e) => setEmailOrUsername(e.target.value)}
-                        className="auth-input !mt-1 !py-2.5 !px-3.5 text-xs sm:text-sm"
+                        className="auth-input !mt-1 !py-2.5 !px-3.5 text-base"
                         placeholder="you or you@example.com"
                       />
                     </div>
@@ -985,7 +985,7 @@ export function AuthShell({
                         type="password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        className="auth-input !mt-1 !py-2.5 !px-3.5 text-xs sm:text-sm"
+                        className="auth-input !mt-1 !py-2.5 !px-3.5 text-base"
                         placeholder="Your password"
                       />
                     </div>
@@ -1002,7 +1002,7 @@ export function AuthShell({
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="auth-input !mt-1 !py-2.5 !px-3.5 text-xs sm:text-sm"
+                      className="auth-input !mt-1 !py-2.5 !px-3.5 text-base"
                       placeholder="you@example.com"
                     />
                   </div>
@@ -1019,7 +1019,7 @@ export function AuthShell({
                         type="password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
-                        className="auth-input !mt-1 !py-2 !px-3 text-xs sm:text-sm"
+                        className="auth-input !mt-1 !py-2 !px-3 text-base"
                         placeholder="New secure password"
                       />
                     </div>
@@ -1032,7 +1032,7 @@ export function AuthShell({
                         type="password"
                         value={confirmation}
                         onChange={(e) => setConfirmation(e.target.value)}
-                        className="auth-input !mt-1 !py-2 !px-3 text-xs sm:text-sm"
+                        className="auth-input !mt-1 !py-2 !px-3 text-base"
                         placeholder="Repeat new password"
                       />
                     </div>

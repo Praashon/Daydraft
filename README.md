@@ -11,10 +11,10 @@ Daydraft is a modern, distraction-free productivity web application engineered t
 - Instant one-click preset templates (*Work & Study Mix*, *Busy Monday Sprint*, *Weekend Personal Reset*).
 - Keyboard shortcut `Command + Enter` / `Ctrl + Enter` to organize instantly.
 
-### 2. Dual AI Engine & Smart Local Fallback
+### 2. Dual AI Engine & Clear Recovery
 - **Flexible AI Providers**: Seamlessly toggle between **Google Gemini** (Gemini 2.5 Flash) and **OpenRouter** (including free tiers and leading open models).
 - **Custom API Key Support**: Configure and test your own API keys directly within user settings.
-- **Offline NLP Heuristic Engine**: Zero-downtime offline fallback parsing tasks, priorities, categories, and deadlines locally when no API keys are set or network calls fail.
+- **Clear Recovery**: AI requests have time limits, cancellation, and visible retry/settings actions. Missing keys and provider failures are reported explicitly; unanswered questions are never silently replaced with heuristic tasks.
 
 ### 3. Focus First Hero Card & Deep Focus Timer
 - Eliminates decision fatigue by surfacing the single highest-leverage task for today.
@@ -69,7 +69,7 @@ Daydraft is a modern, distraction-free productivity web application engineered t
 - **AI Integrations**:
   - `@google/genai` (Google Gemini 2.5 Flash)
   - OpenRouter API (dynamic model selection)
-  - Local heuristic rule-based NLP fallback
+  - Bounded requests, response validation, and explicit failure recovery
 - **State & Storage**: Local storage synchronization combined with Supabase database & storage buckets
 
 ---
@@ -79,7 +79,7 @@ Daydraft is a modern, distraction-free productivity web application engineered t
 ### Prerequisites
 - Node.js 20+ installed
 - A Supabase project (optional for guest mode, required for user accounts)
-- A Gemini API Key or OpenRouter API Key (optional; local heuristic fallback operates without keys)
+- A Gemini API Key or OpenRouter API Key (required for organizing; stored in Settings or configured on the server)
 
 ### Installation
 
@@ -96,7 +96,7 @@ cp .env.example .env
 Edit your `.env` file:
 
 ```env
-# Optional AI API keys (can also be provided by users in Settings)
+# AI API keys (can instead be provided by users in Settings)
 OPENROUTER_API_KEY=your_openrouter_api_key
 GEMINI_API_KEY=your_gemini_api_key
 
@@ -157,7 +157,7 @@ npm run start
 │   └── page.tsx                 # GSAP-animated marketing landing & sandbox
 ├── components/                  # UI components, modals, and providers
 ├── lib/
-│   ├── ai.ts                    # Gemini, OpenRouter, and local NLP fallback logic
+│   ├── ai.ts                    # Gemini and OpenRouter organization logic
 │   └── supabase/                # Supabase SSR and browser clients
 ├── supabase/
 │   └── schema.sql               # Database DDL, RLS, and storage rules
